@@ -215,12 +215,12 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			"mulx/shrd",
 		};
 		name[mode] = nameTbl[mode];
-		if (mode & (1<<1)) {
+		if (mode & (1<<0)) {
 			mulx(rdx, rax, rax);
 		} else {
 			mul(rdx);
 		}
-		if (mode & (1<<2)) {
+		if (mode & (1<<1)) {
 			shrd(rax, rdx, uint8_t(cd.a_));
 		} else {
 			shr(rax, cd.a_);
