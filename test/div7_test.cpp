@@ -168,12 +168,12 @@ int main(int argc, char *argv[])
 		printf("err cdg d=%u\n", d);
 		return 1;
 	}
-	cdg.put();
-	cdg.dump();
 	if (benchOnly) {
 		CYBOZU_BENCH_C("bench", C, cdg.divLp[mode], g_N);
 		return 0;
 	}
+	cdg.put();
+	cdg.dump();
 	loopGen(cdg, r0);
 
 	checkd(d);
