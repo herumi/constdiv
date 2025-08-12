@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 	}
 	g_d = d;
 	if (alld) {
-		std::atomic<uint32_t> count33bit = 0;
+		std::atomic<uint32_t> count33bit{0};
 		puts("check alld");
 #pragma omp parallel for
 		for (int d = 1; d <= 0x7fffffff; d++) {

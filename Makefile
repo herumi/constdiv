@@ -1,12 +1,15 @@
 MCL_USE_OMP=1
 MCL_USE_GMP_LIB=0
-XBYAK_DIR?=./ext/xbyak
-XBYAK_AARCH64_DIR?=./ext/xbyak_aarch64
+XBYAK_DIR?=ext/xbyak
+XBYAK_AARCH64_DIR?=ext/xbyak_aarch64
 include common.mk
 INC_DIR= -I ./ -I $(XBYAK_DIR) -I include
 ifneq ($(findstring $(ARCH),arm64/aarch64),)
 INC_DIR+= -I $(XBYAK_AARCH64_DIR)
 LDFLAGS+= -L $(XBYAK_AARCH64_DIR)/lib -lxbyak_aarch64
+XBYAK_AARCH64_LIB=$(XBYAK_AARCH64_DIR)/lib/libxbyak_aarch64.a
+$(XBYAK_AARCH64_LIB):
+	make -C $(XBYAK_AARCH64_DIR)
 endif
 
 CFLAGS += $(INC_DIR)
@@ -26,7 +29,7 @@ all:$(TARGET)
 obj/%.o: test/%.cpp $(HEADER)
 	$(CXX) -c -o $@ $< $(CFLAGS) -MMD -MP -MF $(@:.o=.d)
 
-$(EXE): obj/$(BASE).o obj/div7.o
+$(EXE): obj/$(BASE).o obj/div7.o $(XBYAK_AARCH64_LIB)
 	$(CXX) -o $@ $< $(LDFLAGS) obj/div7.o
 
 clean:
