@@ -109,6 +109,10 @@ int main(int argc, char *argv[])
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
+#ifdef CONST_DIV_GEN
+	int mode;
+	opt.appendOpt(&mode, ConstDivGen::bestMode, "mode", "mode");
+#endif
 	opt.appendBoolOpt(&alld, "alld", "check all d");
 	opt.appendBoolOpt(&unitTest, "ut", "unit test only");
 	opt.appendBoolOpt(&benchOnly, "bench", "benchmark only");
@@ -167,7 +171,7 @@ int main(int argc, char *argv[])
 	cdg.put();
 	cdg.dump();
 	if (benchOnly) {
-		CYBOZU_BENCH_C("bench", C, cdg.divLp[ConstDivGen::bestMode], g_N);
+		CYBOZU_BENCH_C("bench", C, cdg.divLp[mode], g_N);
 		return 0;
 	}
 	loopGen(cdg, r0);
