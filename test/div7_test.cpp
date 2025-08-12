@@ -17,14 +17,14 @@ uint32_t div7org2(uint32_t x);
 
 } // extern "C"
 
-const uint32_t N = 100000000;
+uint32_t g_N = uint32_t(1e8);
 const int C = 10;
 uint32_t LP_N = 3;
 
 uint32_t loop1(DivFunc f)
 {
 	uint32_t sum = 0;
-	for (uint32_t x = 0; x < N; x++) {
+	for (uint32_t x = 0; x < g_N; x++) {
 		for (uint32_t i = 0; i < LP_N; i++) {
 			sum += f(x);
 		}
@@ -65,7 +65,7 @@ void loopGen(const ConstDivGen& cdg, uint32_t r0)
 		DivFunc f = cdg.divLp[i];
 		char buf[64];
 		snprintf(buf, sizeof(buf), "%10s", cdg.name[i]);
-		CYBOZU_BENCH_C(buf, C, rs[i] += f, N);
+		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
 	for (size_t i = 0; i < FUNC_N; i++) {
 		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
@@ -105,10 +105,13 @@ int main(int argc, char *argv[])
 	uint32_t d;
 	bool alld;
 	bool unitTest;
+	bool benchOnly;
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
+	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
 	opt.appendBoolOpt(&alld, "alld", "check all d");
 	opt.appendBoolOpt(&unitTest, "ut", "unit test only");
+	opt.appendBoolOpt(&benchOnly, "bench", "benchmark only");
 	opt.appendHelp("h");
 	if (opt.parse(argc, argv)) {
 		opt.put();
@@ -151,7 +154,10 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	uint32_t r0 = loopOrg(d);
+	uint32_t r0 = 0;
+	if (!benchOnly) {
+		r0 = loopOrg(d);
+	}
 #ifdef CONST_DIV_GEN
 	ConstDivGen cdg;
 	if (!cdg.init(d, LP_N)) {
@@ -160,6 +166,10 @@ int main(int argc, char *argv[])
 	}
 	cdg.put();
 	cdg.dump();
+	if (benchOnly) {
+		CYBOZU_BENCH_C("bench", C, cdg.divLp[ConstDivGen::bestMode], g_N);
+		return 0;
+	}
 	loopGen(cdg, r0);
 
 	checkd(d);
