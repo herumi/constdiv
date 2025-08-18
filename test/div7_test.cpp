@@ -9,10 +9,9 @@
 #include "constdiv.hpp"
 #include <math.h>
 
-//#define COUNT_33BIT
-#ifdef COUNT_33BIT
 #include <atomic>
-#endif
+//#define COUNT_33BIT
+//#define COUNT_DIFF
 
 extern "C" {
 
@@ -131,8 +130,8 @@ int main(int argc, char *argv[])
 	}
 	g_d = d;
 	if (alld) {
-#ifdef COUNT_33BIT
-		std::atomic<uint32_t> count33bit{0};
+#if defined(COUNT_33BIT) || defined(COUNT_DIFF)
+		std::atomic<uint32_t> count{0};
 #endif
 		puts("check alld");
 #pragma omp parallel for
@@ -143,12 +142,21 @@ int main(int argc, char *argv[])
 			}
 #ifdef COUNT_33BIT
 			if (cd.c_ > 0xffffffff) {
-				count33bit++;
+				count++;
+			}
+#endif
+#ifdef COUNT_DIFF
+			// a = ceil(log2(d)) + 32 is a sufficient condition but not optimal.
+			// e.g., d = 18, 23, ...
+			uint32_t b = ConstDiv::ceil_ilog2(d) + 32;
+			if (b != cd.a_) {
+				printf("d=%u a=%u b=%u %d %d\n", d, cd.a_, b, cd.c_ > 0xffffffff, ((uint64_t(1) << b) + d - 1)/d > 0xffffffff);
+				count++;
 			}
 #endif
 		}
-#ifdef COUNT_33BIT
-		printf("count33bit=%u (%.2f)\n", count33bit.load(), count33bit.load() / double(0x7fffffff - 1));
+#if defined(COUNT_33BIT) || defined(COUNT_DIFF)
+		printf("count=%u (%.2f)\n", count.load(), count.load() / double(0x7fffffff - 1));
 #endif
 		puts("ok");
 #ifdef CONST_DIV_GEN
