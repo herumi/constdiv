@@ -8,7 +8,11 @@
 #include <cybozu/test.hpp>
 #include "constdiv.hpp"
 #include <math.h>
+
+//#define COUNT_33BIT
+#ifdef COUNT_33BIT
 #include <atomic>
+#endif
 
 extern "C" {
 
@@ -127,7 +131,9 @@ int main(int argc, char *argv[])
 	}
 	g_d = d;
 	if (alld) {
+#ifdef COUNT_33BIT
 		std::atomic<uint32_t> count33bit{0};
+#endif
 		puts("check alld");
 #pragma omp parallel for
 		for (int d = 1; d <= 0x7fffffff; d++) {
@@ -135,11 +141,15 @@ int main(int argc, char *argv[])
 			if (!cd.init(d)) {
 				printf("err d=%d\n", d); exit(1);
 			}
+#ifdef COUNT_33BIT
 			if (cd.c_ > 0xffffffff) {
 				count33bit++;
 			}
+#endif
 		}
+#ifdef COUNT_33BIT
 		printf("count33bit=%u (%.2f)\n", count33bit.load(), count33bit.load() / double(0x7fffffff - 1));
+#endif
 		puts("ok");
 #ifdef CONST_DIV_GEN
 		const uint32_t tbl[] = {
