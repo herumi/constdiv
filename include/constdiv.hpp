@@ -72,7 +72,7 @@ struct ConstDiv {
 	{
 		d_ = d;
 		assert(d <= M);
-		const uint32_t M_d = uint32_t(M - ((uint64_t(M)+1)%d));
+		const uint32_t M_d = M - ((M+1)%d);
 		if (d > 0x80000000) {
 			cmp_ = true;
 			uint32_t a = 64;
