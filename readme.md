@@ -115,10 +115,19 @@ divd_optimized_for_7
   add x0, x0, x9, LSR, 32 // x += x9 >> 32;
   lsr x0, x0, a - 32 // x >>= a - 32;
 ```
+This library uses the following class to achieve fast integer division with given constants.
 
+# Class `ConstDivGen`
+- The class `ConstDivGen`, defined in [constdiv.hpp](https://github.com/herumi/constdiv/blob/main/include/constdiv.hpp), generates optimized code for integer division with a given divisor.
+- This class supports x64 using [Xbyak](https://github.com/herumi/xbyak) (a JIT code generation library) and ARM64 using [Xbyak_aarch64](https://github.com/fujitsu/xbyak_aarch64) (a JIT code generation library for ARM64).
 
-# Misc
-
+```cpp
+ConstDivGen cd;
+uint32_t d = 7;
+cd.init(d);
+uint32_t x = 100;
+assert(cd.divd(x) == x / d);
+```
 
 # Background
 M: integer >= 1.
