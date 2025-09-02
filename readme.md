@@ -65,6 +65,7 @@ Since $c$ is 33 bits, we split it into the lower 32 bits $c_L$ and the upper 1 b
 $$
 c = 2^{32} + c_L.
 $$
+
 Since $x c = x 2^{32} + x c_L$, we first calculate $x c_L$.
 Since we know that $a \ge 32$, we perform a 32-bit logical right shift first.
 Let this be $v$. $v = (x c_L) \texttt{>>} 32$.
@@ -79,7 +80,7 @@ Since $v$ is the upper 32 bits of $x c_L$, it is less than or equal to $x$. Ther
 Thus, the right-hand side can be computed within the range of 32-bit unsigned integers without underflow or overflow.
 
 ## Our Approach
-The method at the end of the previous section assumes 32-bit CPUs. On 64-bit CPUs, it can be optimized as follows.
+The method at the end of the previous section assumes 32-bit CPUs. It can be optimized as follows for 64-bit CPUs.
 
 ```cpp
 uint32_t divd_optimized(uint32_t x)
@@ -157,6 +158,6 @@ f(M_d) - f(M) = (M_d e + (d-1)A) - (M e + r0 A) = (d-1 - r0) A - (r0 + 1)e
 >(d-1 - (d-2)) A - ((d-2)+1)e = A - d e + e = d (c - e) > 0.
 Then max f(x) = f(M_d) < d A.
 
-This condition is the assumption of Thereom 1 in
+This condition is the assumption of Theorem 1 in
 "Integer division by constants: optimal bounds", Daniel Lemire, Colin Bartlett, Owen Kaser. 2021
 
