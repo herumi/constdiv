@@ -20,6 +20,8 @@ uint32_t div7org2(uint32_t x);
 
 } // extern "C"
 
+using namespace constdiv;
+
 uint32_t g_N = uint32_t(1e8);
 const int C = 10;
 uint32_t LP_N = 3;
@@ -97,7 +99,7 @@ CYBOZU_TEST_AUTO(log)
 {
 	for (uint32_t x = 1; x < 300; x++) {
 		uint32_t y = int(ceil(log2(double(x))));
-		CYBOZU_TEST_EQUAL(ConstDiv::ceil_ilog2(x), y);
+		CYBOZU_TEST_EQUAL(ceil_ilog2(x), y);
 	}
 }
 

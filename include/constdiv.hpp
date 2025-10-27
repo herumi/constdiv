@@ -43,20 +43,38 @@ Then max f(x) = f(M_d) < d A.
 This condition is the assumption of Thereom 1 in
 "Integer division by constants: optimal bounds", Daniel Lemire, Colin Bartlett, Owen Kaser. 2021
 */
+
+#if defined(_WIN64) || defined(__x86_64__)
+#define CONST_DIV_GEN
+#define CONST_DIV_GEN_X64
+
+#define XBYAK_DISABLE_AVX512
+#include <xbyak/xbyak_util.h>
+
+#elif defined(__arm64__) || defined(__aarch64__)
+
+#define CONST_DIV_GEN
+#define CONST_DIV_GEN_AARCH64
+
+#include <xbyak_aarch64/xbyak_aarch64.h>
+#endif
+
+namespace constdiv {
+
+static const uint64_t one = 1;
+static inline uint32_t ceil_ilog2(uint32_t x)
+{
+	assert(x > 0);
+	uint32_t a = 0;
+	for (;;) {
+		if (x <= (one << a)) return a;
+		a++;
+	}
+}
+
 struct ConstDiv {
-	static const uint64_t one = 1;
 	static const uint32_t N = 32;
 	static const uint64_t M = (one << N) - 1;
-
-	static inline uint32_t ceil_ilog2(uint32_t x)
-	{
-		assert(x > 0);
-		uint32_t a = 0;
-		for (;;) {
-			if (x <= (one << a)) return a;
-			a++;
-		}
-	}
 
 	uint32_t d_;
 	uint32_t a_;
@@ -139,11 +157,7 @@ struct ConstDiv {
 
 typedef uint32_t (*DivFunc)(uint32_t);
 
-#if defined(_WIN64) || defined(__x86_64__)
-#define CONST_DIV_GEN
-
-#define XBYAK_DISABLE_AVX512
-#include <xbyak/xbyak_util.h>
+#ifdef CONST_DIV_GEN_X64
 
 static const size_t FUNC_N = 1 + 5;
 
@@ -281,11 +295,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 	}
 };
 
-#elif defined(__arm64__) || defined(__aarch64__)
-
-#define CONST_DIV_GEN
-
-#include <xbyak_aarch64/xbyak_aarch64.h>
+#elif defined(CONST_DIV_GEN_AARCH64)
 
 static const size_t FUNC_N = 3;
 
@@ -413,4 +423,6 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 };
 
 #endif
+
+} // constdiv
 
