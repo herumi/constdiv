@@ -150,13 +150,26 @@ int main(int argc, char *argv[])
 	}
 	g_d = d;
 	if (mod) {
-		puts("check alld");
+		if (alld) {
+			puts("mod check alld");
 #pragma omp parallel for
-		for (int d = 1; d <= 0x7fffffff; d++) {
+			for (int d = 1; d <= 0x7fffffff; d++) {
+				ConstMod cm;
+				if (!cm.init(d)) {
+					printf("err d=%d\n", d); exit(1);
+				}
+				if (cm.c_ > 0xffffffff) {
+					printf("d=%d cm.c_ over\n", d);
+				}
+				checkmod(cm);
+			}
+		} else {
+			puts("mod check d");
 			ConstMod cm;
 			if (!cm.init(d)) {
 				printf("err d=%d\n", d); exit(1);
 			}
+			cm.put();
 			if (cm.c_ > 0xffffffff) {
 				printf("d=%d cm.c_ over\n", d);
 			}
