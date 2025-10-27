@@ -76,21 +76,24 @@ struct ConstDiv {
 	static const uint32_t N = 32;
 	static const uint64_t M = (one << N) - 1;
 
-	uint32_t d_;
-	uint32_t a_;
 	uint64_t A_;
 	uint64_t c_;
+	uint32_t d_;
+	uint32_t a_;
+	uint32_t e_;
+	uint32_t r0_;
 	bool cmp_; // use comparison
-	ConstDiv() : d_(0), a_(0), A_(0), c_(0), cmp_(false) {}
+	ConstDiv() : A_(0), c_(0), d_(0), a_(0), e_(0), r0_(0), cmp_(false) {}
 	void put() const
 	{
-		printf("My d=%u(0x%08x) a=%u c32=0x%08x over=%d cmp=%d\n", d_, d_, a_, uint32_t(c_), c_ >= 0x100000000, cmp_);
+		printf("Div d=%u(0x%08x) a=%u c32=0x%08x over=%d cmp=%d e=%08x\n", d_, d_, a_, uint32_t(c_), c_ >= 0x100000000, cmp_, e_);
 	}
 	bool init(uint32_t d)
 	{
+		if (d > M) return false;
 		d_ = d;
-		assert(d <= M);
-		const uint32_t M_d = M - ((M+1)%d);
+		r0_ = M % d;
+		const uint32_t M_d = (r0_ == d-1) ? M : M - r0_ - 1;
 		if (d > 0x80000000) {
 			cmp_ = true;
 			uint32_t a = 64;
@@ -114,6 +117,7 @@ struct ConstDiv {
 				a_ = a;
 				A_ = A;
 				c_ = c;
+				e_ = e;
 				return true;
 			}
 		}
@@ -129,29 +133,111 @@ struct ConstDiv {
 			return x >= d_;
 #endif
 		}
+		if (c_ == 1) {
+			return x >> a_;
+		}
 		if (c_ > 0xffffffff) {
 #if 0 // #ifdef MCL_DEFINED_UINT128_T
 			uint128_t v = (x * uint128_t(c_)) >> a_;
 			return uint32_t(v);
 #else
-#if 1
 			uint64_t v = x * (c_ & 0xffffffff);
 			v >>= 32;
 			v += x;
 			v >>= a_-32;
 			return uint32_t(v);
-#else
-			uint64_t H;
-			uint64_t L = mulUnit1(&H, x, c);
-			L >>= a;
-			H <<= (64 - a);
-			return uint32_t(H | L);
-#endif
 #endif
 		} else {
 			uint32_t v = uint32_t((x * c_) >> a_);
 			return v;
 		}
+	}
+};
+
+struct ConstMod {
+	static const uint32_t N = 32;
+	static const uint64_t M = (one << N) - 1;
+
+	uint64_t A_;
+	uint64_t c_;
+	uint32_t d_;
+	uint32_t a_;
+	uint32_t e_;
+	uint32_t r0_;
+	bool cmp_; // use comparison
+	ConstMod() : A_(0), c_(0), d_(0), a_(0), e_(0), r0_(0), cmp_(false) {}
+	void put() const
+	{
+		printf("Mod d=%u(0x%08x) a=%u c32=0x%08x over=%d cmp=%d e=%08x\n", d_, d_, a_, uint32_t(c_), c_ >= 0x100000000, cmp_, e_);
+	}
+	bool init(uint32_t d)
+	{
+		if (d > M) return false;
+		d_ = d;
+		r0_ = M % d;
+		const uint32_t M_d = (r0_ == d-1) ? M : M - r0_ - 1;
+		if (d > 0x80000000) {
+			cmp_ = true;
+			uint32_t a = 64;
+			uint64_t c = 0xffffffffffffffff / d + 1;
+			if (c <= 0xffffffff || c >= (one << 33)) {
+				return false;
+			}
+			a_ = a;
+			A_ = 0;
+			c_ = c;
+			return true;
+		}
+		// u > 0 => A >= d => a >= ilog2(d)
+		for (uint32_t a = ceil_ilog2(d); a < 64; a++) {
+			uint64_t A = one << a;
+			uint64_t c = (A + d - 1) / d;
+			assert(c < (one << 33));
+			if (c >= (one << 33)) return false;
+			uint64_t e = d * c - A;
+			uint64_t f1 = e * M_d + A * (d-1);
+			uint64_t f2 = e * M + A * r0_;
+			uint64_t RHS = 2 * A * d;
+			if (f1 < RHS && f2 < RHS) {
+				a_ = a;
+				A_ = A;
+				c_ = c;
+				e_ = e;
+				return true;
+			}
+		}
+		return false;
+	}
+	uint32_t divd(uint32_t x) const
+	{
+		if (cmp_) {
+			return x >= d_;
+		}
+		if (c_ == 1) {
+			return x >> a_;
+		}
+		if (c_ > 0xffffffff) {
+			uint64_t v = x * (c_ & 0xffffffff);
+			v >>= 32;
+			v += x;
+			v >>= a_-32;
+			return uint32_t(v);
+		} else {
+			uint32_t v = uint32_t((x * c_) >> a_);
+			return v;
+		}
+	}
+	uint32_t modd(uint32_t x) const
+	{
+		if (cmp_) {
+			if (x >= d_) x -= d_;
+			return x;
+		}
+		uint32_t a = divd(x) * d_;
+		if (x >= a) {
+			return x - a;
+		}
+		return x + d_ - a;
 	}
 };
 
