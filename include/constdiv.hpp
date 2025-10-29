@@ -233,11 +233,12 @@ struct ConstMod {
 			if (x >= d_) x -= d_;
 			return x;
 		}
-		uint32_t a = divd(x) * d_;
-		if (x >= a) {
-			return x - a;
+		uint32_t v = divd(x) * d_;
+		if (x >= v) {
+			return x - v;
+		} else {
+			return x - v + d_;
 		}
-		return x + d_ - a;
 	}
 };
 
