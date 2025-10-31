@@ -128,6 +128,7 @@ int main(int argc, char *argv[])
 	bool unitTest;
 	bool benchOnly;
 	bool mod;
+	bool find33bit;
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
@@ -139,6 +140,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&unitTest, "ut", "unit test only");
 	opt.appendBoolOpt(&benchOnly, "bench", "benchmark only");
 	opt.appendBoolOpt(&mod, "mod", "mod");
+	opt.appendBoolOpt(&find33bit, "f33", "find 33bit c");
 	opt.appendHelp("h");
 	if (opt.parse(argc, argv)) {
 		opt.put();
@@ -149,6 +151,18 @@ int main(int argc, char *argv[])
 		return cybozu::test::autoRun.run(argc, argv);
 	}
 	g_d = d;
+	if (find33bit) {
+		for (int d = g_d; d <= 0x7fffffff; d += 2) {
+			ConstDiv cd;
+			cd.init(d);
+			if (cd.c_ > 0xffffffff) {
+				printf("find\n");
+				cd.put();
+				return 1;
+			}
+		}
+		return 0;
+	}
 	if (mod) {
 		if (alld) {
 			puts("mod check alld");
@@ -224,16 +238,18 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	uint32_t r0 = 0;
-	if (!benchOnly) {
-		r0 = loopOrg(d);
-	}
 #ifdef CONST_DIV_GEN
 	ConstDivGen cdg;
 	if (!cdg.init(d, LP_N)) {
 		printf("err cdg d=%u\n", d);
 		return 1;
 	}
+#endif
+	uint32_t r0 = 0;
+	if (!benchOnly) {
+		r0 = loopOrg(d);
+	}
+#ifdef CONST_DIV_GEN
 	if (benchOnly) {
 		CYBOZU_BENCH_C("bench", C, cdg.divLp[mode], g_N);
 		return 0;
