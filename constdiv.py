@@ -10,7 +10,7 @@ class ConstDiv:
       A = 1 << a
       c = (A + d - 1) // d
       e = d * c - A
-      if e * M_d < A:
+      if e * M_d < A * (d+1):
         self.a = a
         self.A = A
         self.c = c
@@ -38,7 +38,7 @@ def findMax(M):
   print(f'{maxcd}')
 
 
-for d in [102807]:
+for d in [7]:
 #for d in range(1, 1000000):
   cd = ConstDiv(d, 2**32-1)
   print(cd)
