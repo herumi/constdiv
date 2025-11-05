@@ -1,3 +1,5 @@
+import random
+
 def findMod(d, M=2**32-1):
   if d & 1 == 0:
     raise Exception('d must be odd', d)
@@ -22,7 +24,8 @@ def findMod(d, M=2**32-1):
         return q * e + (r - L) * c
       yp = y(xp)
       ym = y(xm)
-      if yp - ym < 2 * A:
+      maxV = 2 * A
+      if (ym < 0 and yp - ym < maxV) or (ym >= 0 and yp < maxV):
         print(f'''{hex(d)=} {d=}
 {hex(M)=} {M=}
 {a=} {s=}
@@ -50,8 +53,10 @@ def checkMod(x, d, asc):
 
 def testMod(d, M):
   asc = findMod(d, M)
-  for x in range(100):
+  for i in range(100):
+    x = random.randint(0, M)
     checkMod(x, d, asc)
   print('OK')
 
 testMod(7, 2**32-1)
+testMod(L, p-1)
