@@ -1,39 +1,66 @@
 import random
 
+def gcm(d, S):
+  while S != 0:
+    (d, S) = (S, d % S)
+  return d
+
 def findMod(d, M=2**32-1):
-  if d & 1 == 0:
-    raise Exception('d must be odd', d)
+#  if d & 1 == 0:
+#    raise Exception('d must be odd', d)
   len_d = d.bit_length()
   len_M = M.bit_length()
   (q_M, r_M) = divmod(M, d)
+  candi = []
   for a in range(len_d, len_d + len_M + 1):
     A = 1 << a
+    maxV = A * 2
     c = (A + d - 1) // d
     e = d * c - A
+    if e >= c:
+      continue
+
     for s in reversed(range(0, len_d)):
       S = 1 << s
       dS = d * S
-      u = pow(d, -1, S)
-      v = pow(S, -1, d)
-      assert((u * d + v * S) % dS == 1)
+      # compute gcm(d, S)
+      g = gcm(d, S)
+      d_red = d // g
+      if d_red == 1:
+        break
+      S_red = S // g
+      u_red = pow(d_red, -1, S_red)
+      v_red = pow(S_red, -1, d_red)
+      assert((u_red * d_red + v_red * S_red) % (dS//g**2) == 1)
+      u = u_red * g
+      v = v_red * g
+      # max(r - L) is r = d-g, L = 0
+      # min(r - L) is r = 0, L = S-g
       xp = (-v * S) % dS + (M//dS)*dS
-      xm = (u * d) % dS + dS
-      def y(x):
+      xm = (-u * d) % dS
+      def get_y(x):
         (q, r) = divmod(x, d)
         (H, L) = divmod(x, S)
-        return q * e + (r - L) * c
-      yp = y(xp)
-      ym = y(xm)
-      maxV = 2 * A
+        return (q * e + (r - L) * c, r, L)
+      (yp, r, L) = get_y(xp)
+      assert(r == d-g and L == 0)
+      (ym, r, L) = get_y(xm)
+      assert(r == 0 and L == S-g)
+
+      (q, r) = divmod(xm, d)
+      (H, L) = divmod(xm, S)
+
       if (ym < 0 and yp - ym < maxV) or (ym >= 0 and yp < maxV):
-        print(f'''{hex(d)=} {d=}
-{hex(M)=} {M=}
-{a=} {s=}
-c={hex(c)} {c.bit_length()=}
-{e=} {yp=} {ym=}''')
-        return (a, s, c)
+        candi.append((a, s, c))
+        break
+  if not candi:
+    raise Exception('no candidate found', d, M)
+  # min (a, s, c) according to c
+  asc = min(candi, key=lambda x: x[2]) if candi else None
+  return asc
 
 L=0xac45a4010001a40200000000ffffffff
+#L=0x452217cc900000010a11800000000000
 p=L*L+L+1
 
 def mod(x, d, asc):
@@ -55,6 +82,9 @@ def checkMod(x, d, asc):
 
 def testMod(d, M):
   asc = findMod(d, M)
+  (a, s, c) = asc
+  print(f'd={hex(d)} len(d)={d.bit_length()} M={hex(M)}')
+  print(f'{a=} {s=} c={hex(c)}')
   for i in range(100):
     x = random.randint(0, M)
     checkMod(x, d, asc)
