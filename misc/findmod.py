@@ -10,7 +10,7 @@ def findMod(d, M=2**32-1):
     A = 1 << a
     c = (A + d - 1) // d
     e = d * c - A
-    for s in [0]: #reversed(range(0, len_d)):
+    for s in reversed(range(0, len_d)):
       S = 1 << s
       dS = d * S
       u = pow(d, -1, S)
@@ -38,10 +38,12 @@ p=L*L+L+1
 
 def mod(x, d, asc):
   (a, s, c) = asc
-  q = ((x >> s) * c) >> a
+  q = ((x >> s) * c) >> (a-s)
   r = x - q * d
   if r < 0:
     r += d
+  if r >= d:
+    r -= d
   return r
 
 def checkMod(x, d, asc):
