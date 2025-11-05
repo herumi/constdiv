@@ -8,7 +8,7 @@ def findMod(d, M=2**32-1):
     A = 1 << a
     c = (A + d - 1) // d
     e = d * c - A
-    for s in reversed(range(1, len_d)):
+    for s in [0]: #reversed(range(0, len_d)):
       S = 1 << s
       dS = d * S
       u = pow(d, -1, S)
@@ -23,9 +23,35 @@ def findMod(d, M=2**32-1):
       yp = y(xp)
       ym = y(xm)
       if yp - ym < 2 * A:
-        print(f'd={d} a={a} c={hex(c)} e={e}')
-        print(f's={s} xp={xp} yp={yp} xm={xm} ym={ym} yp-ym={yp-ym}')
-        return
+        print(f'''{hex(d)=} {d=}
+{hex(M)=} {M=}
+{a=} {s=}
+c={hex(c)} {c.bit_length()=}
+{e=} {yp=} {ym=}''')
+        return (a, s, c)
 
+L=0xac45a4010001a40200000000ffffffff
+p=L*L+L+1
 
-findMod(7)
+def mod(x, d, asc):
+  (a, s, c) = asc
+  q = ((x >> s) * c) >> a
+  r = x - q * d
+  if r < 0:
+    r += d
+  return r
+
+def checkMod(x, d, asc):
+  (a, s, c) = asc
+  r1 = x % d
+  r2 = mod(x, d, asc)
+  if r1 != r2:
+    raise Exception(f'ERR {x=} {d=} {r1=} {r2=}')
+
+def testMod(d, M):
+  asc = findMod(d, M)
+  for x in range(100):
+    checkMod(x, d, asc)
+  print('OK')
+
+testMod(7, 2**32-1)
