@@ -3,25 +3,45 @@
 #include <stdint.h>
 
 //Mod d=7(0x00000007) a=32 c32=0x24924925 over=0 cmp=0 e=00000003
-#if 0
-const uint32_t d_ = 7;
+//#define D 7
+//#define D 1234609
+#define D 1073741823
+
+#if D == 7
+const uint32_t d_ = D;
 const uint32_t a_ = 32;
+const uint32_t s_ = 1;
 const uint64_t c_ = 0x24924925;
 const bool cmp_ = false;
-#else
+#endif
+#if D == 1234609
 //Mod d=1234609(0x0012d6b1) a=32 c32=0x00000d97 over=0 cmp=0 e=00039f67
-const uint32_t d_ = 1234609;
+const uint32_t d_ = D;
 const uint32_t a_ = 32;
+const uint32_t s_ = 1;
 const uint64_t c_ = 0x00000d97;
 const bool cmp_ = false;
 #endif
+#if D == 1073741823
+const uint32_t d_ = D;
+const uint32_t a_ = 59;
+const uint32_t s_ = 29;
+const uint64_t c_ = 536870913;
+const bool cmp_ = false;
+#endif
 
-__attribute__((noinline)) uint32_t mod7org(uint32_t x)
+#ifdef _WIN32
+#define NOINLINE __declspec(noinline)
+#else
+#define NOINLINE __attribute__((noinline))
+#endif
+
+NOINLINE uint32_t mod7org(uint32_t x)
 {
 	return x % d_;
 }
 
-__attribute__((noinline)) uint32_t mod7new(uint32_t x)
+NOINLINE uint32_t mod7new(uint32_t x)
 {
 	uint32_t v = uint32_t((x * c_) >> a_);
 	v *= d_;

@@ -36,8 +36,10 @@ def findMod(d, M=2**32-1):
       v = v_red * g
       # max(r - L) is r = d-g, L = 0
       # min(r - L) is r = 0, L = S-g
-      xp = (-v * S) % dS + (M//dS)*dS
-      xm = (-u * d) % dS
+      xbp = (-v * S) % dS
+      xbm = (-u * d) % dS 
+      xp = xbp + (M//dS)*dS
+      xm = xbm
       def get_y(x):
         (q, r) = divmod(x, d)
         (H, L) = divmod(x, S)
@@ -51,6 +53,7 @@ def findMod(d, M=2**32-1):
       (H, L) = divmod(xm, S)
 
       if (ym < 0 and yp - ym < maxV) or (ym >= 0 and yp < maxV):
+        print(f'{a=} {s=} {c=} {e=} {xp=} {xm=} {xbp=} {xbm=}')
         candi.append((a, s, c))
         break
   if not candi:
@@ -80,15 +83,18 @@ def checkMod(x, d, asc):
   if r1 != r2:
     raise Exception(f'ERR {x=} {d=} {r1=} {r2=}')
 
-def testMod(d, M):
+def testMod(d, M=2**32-1):
   asc = findMod(d, M)
   (a, s, c) = asc
   print(f'd={hex(d)} len(d)={d.bit_length()} M={hex(M)}')
-  print(f'{a=} {s=} c={hex(c)}')
+  e = d * c - (1 << a)
+  print(f'{a=} {s=} c={hex(c)} {e=} {e<c=}')
   for i in range(100):
     x = random.randint(0, M)
     checkMod(x, d, asc)
   print('OK')
 
-testMod(7, 2**32-1)
-testMod(L, p-1)
+testMod(123)
+testMod(2**30-1)
+#testMod(7, 2**32-1)
+#testMod(L, p-1)
