@@ -13,8 +13,8 @@ void inspect(uint32_t d, uint32_t a, uint32_t s)
 	int64_t max = INT64_MIN;
 	uint32_t xmin = 0;
 	uint32_t xmax = 0;
-//	const int64_t LIMIT = 0xffffffff;
-	const int64_t LIMIT = 1610;
+	const int64_t LIMIT = 0xffffffff;
+//	const int64_t LIMIT = 1610;
 	for (int64_t _x = 0; _x <= LIMIT; _x++) {
 		uint32_t x = uint32_t(_x);
 		int32_t q = x / d;
@@ -22,7 +22,7 @@ void inspect(uint32_t d, uint32_t a, uint32_t s)
 //		int32_t H = x / S;
 		int32_t L = x % S;
 		int64_t v = q * e + (r-L) * c;
-		printf("%u %" PRIi64 "\n", x, v);
+//		printf("%u %" PRIi64 "\n", x, v);
 		if (v < min) {
 			min = v;
 			xmin = x;

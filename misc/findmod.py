@@ -39,6 +39,8 @@ def findMod(d, M=2**32-1):
       xbp = (-v * S) % dS
       xbm = (-u * d) % dS 
       xp = xbp + (M//dS)*dS
+      if xp >= M:
+        xp -= dS
       xm = xbm
       def get_y(x):
         (q, r) = divmod(x, d)
