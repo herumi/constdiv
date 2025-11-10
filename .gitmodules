@@ -4,3 +4,6 @@
 [submodule "ext/xbyak_aarch64"]
 	path = ext/xbyak_aarch64
 	url = https://github.com/fujitsu/xbyak_aarch64
+[submodule "ext/s_xbyak"]
+	path = ext/s_xbyak
+	url = https://github.com/herumi/s_xbyak
