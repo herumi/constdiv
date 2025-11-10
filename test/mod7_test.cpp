@@ -3,9 +3,9 @@
 #include <stdint.h>
 
 //Mod d=7(0x00000007) a=32 c32=0x24924925 over=0 cmp=0 e=00000003
-//#define D 7
+#define D 7
 //#define D 1234609
-#define D 1073741823
+//#define D 1073741823
 
 #if D == 7
 const uint32_t d_ = D;
@@ -36,7 +36,11 @@ const bool cmp_ = false;
 #define NOINLINE __attribute__((noinline))
 #endif
 
-NOINLINE uint32_t mod7org(uint32_t x)
+extern "C" {
+uint32_t mod7org(uint32_t x);
+}
+
+NOINLINE uint32_t mod7orgC(uint32_t x)
 {
 	return x % d_;
 }
@@ -96,7 +100,8 @@ int main()
 {
 	uint32_t r0 = 0, r1 = 0;
 	CYBOZU_BENCH_C("org ", C, r0 += loop1, mod7org);
-	CYBOZU_BENCH_C("new ", C, r1 += loop1, mod7new);
+	CYBOZU_BENCH_C("org ", C, r0 += loop1, mod7orgC);
+//	CYBOZU_BENCH_C("new ", C, r1 += loop1, mod7new);
 	if (r0 != r1) {
 		printf("ERR org2 =0x%08x\n", r1);
 	}
