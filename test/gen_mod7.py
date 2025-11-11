@@ -30,6 +30,7 @@ def gen_moddorg():
       x32 = x.changeBit(32)
       for i in range(N):
         raw(x32)
+        mov(x32, eax)
 
 def gen_moddnew():
   c = 0xa9e1
@@ -47,8 +48,10 @@ def gen_moddnew():
   with FuncProc('moddnew'):
     with StackFrame(1, 0, useRDX=True) as sf:
       x = sf.p[0]
+      x32 = x.changeBit(32)
       for i in range(N):
-        raw(x, x.changeBit(32))
+        raw(x, x32)
+        mov(x32, eax)
 
 
 

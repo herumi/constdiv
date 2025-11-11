@@ -92,12 +92,13 @@ NOINLINE uint32_t moddnewC(uint32_t x)
 typedef uint32_t (*DivFunc)(uint32_t);
 
 uint32_t g_N = uint32_t(1e8);
-const int C = 10;
+const int C = 2;
 
 uint32_t loop1(DivFunc f)
 {
 	uint32_t sum = 0;
-	for (uint32_t x = 0; x < g_N; x++) {
+	for (int64_t _x = 0; _x <= 0xffffffff; _x++) {
+		uint32_t x = uint32_t(_x);
 		sum += f(x);
 //		sum += f(x * 2);
 //		sum += f(x * 3);
@@ -110,8 +111,8 @@ int main()
 	uint32_t r0 = 0, r1 = 0;
 	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
 	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
-//	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
-//	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
+	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
+	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
 	if (r0 != r1) {
 		printf("ERR org2 =0x%08x\n", r1);
 	}
