@@ -1,5 +1,9 @@
 {
     "python.analysis.extraPaths": [
         "./ext/s_xbyak"
-    ]
+    ],
+    "files.associations": {
+        "*.md": "markdown",
+        "cstdint": "cpp"
+    }
 }

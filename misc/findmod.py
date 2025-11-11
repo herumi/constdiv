@@ -20,7 +20,7 @@ def findMod(d, M=2**32-1):
     if e >= c:
       continue
 
-    for s in reversed(range(0, len_d)):
+    for s in [0]: #reversed(range(0, len_d)):
       S = 1 << s
       dS = d * S
       # compute gcm(d, S)
@@ -96,6 +96,7 @@ def testMod(d, M=2**32-1):
     checkMod(x, d, asc)
   print('OK')
 
+testMod(12345)
 testMod(123)
 testMod(2**30-1)
 #testMod(7, 2**32-1)

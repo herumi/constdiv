@@ -2,46 +2,62 @@ import sys
 sys.path.append('../ext/s_xbyak')
 from s_xbyak import *
 
-d = 7
+d = 12345
 
-"""
-mov edx, edi
-mov eax, edi
-imul    rdx, rdx, 613566757
-shr rdx, 32
-sub eax, edx
-shr eax
-add eax, edx
-shr eax, 2
-lea edx, 0[0+rax*8]
-sub edx, eax
-mov eax, edi
-sub eax, edx
-"""
-
-def gen_mod7org():
-  c = 0x124924925
-  a = 35
-  def mod7org_raw(x32):
-    mov(edx, x32)
-    mov(eax, c & 0xFFFFFFFF)
-    imul(rax, rdx)
-    shr(eax, 32)
-    sub(edx, eax)
-    shr(edx, 1)
-    add(eax, edx)
-    shr(eax, a - 33)
-    lea(edx, ptr(rax*8))
-    sub(edx, eax)
+def gen_moddorg():
+  c = 0x53c1df1d
+  a = 46
+  def raw(x32):
     mov(eax, x32)
-    sub(eax, edx)
+    mov(ecx, x32)
+    imul(rcx, rcx, c & 0xFFFFFFFF)
+    shr(rcx, 32)
+    mov(edx, x32)
+    sub(edx, ecx)
+    shr(edx, 1)
+    add(edx, ecx)
+    shr(edx, a - 33)
+    imul(ecx, edx, d)
+    sub(eax, ecx)
+
 
   align(16)
-  with FuncProc('mod7org'):
+  with FuncProc('moddorg'):
     with StackFrame(1, 0, useRDX=True) as sf:
       x = sf.p[0]
       x32 = x.changeBit(32)
-      mod7org_raw(x32)
+      raw(x32)
+
+def gen_moddnew():
+  c = 0xa9e1
+  a = 29
+  def raw(x, x32):
+    mov(edx, c)
+    imul(rdx, rdx, x)
+    shr(rdx, a)
+    imul(edx, edx, d)
+    mov(eax, x32)
+    sub(rax, rdx)
+    sbb(rcx, rcx)
+    and_(rcx, x)
+    add(eax, ecx)
+
+  """
+  c = 0x153c1df1d
+  a = 46
+  def raw(x, x32):
+    mov(rax, c)
+    imul(rax, x)
+    shr(rax, a)
+    imul(eax, eax, d)
+    sub(x32, eax)
+    mov(eax, x32)
+  """
+  align(16)
+  with FuncProc('moddnew'):
+    with StackFrame(1, 0, useRDX=True) as sf:
+      x = sf.p[0]
+      raw(x, x.changeBit(32))
 
 
 
@@ -53,8 +69,8 @@ def main():
 
   segment('text')
 
-  gen_mod7org()
-#  gen_mod7new()
+  gen_moddorg()
+  gen_moddnew()
 
   term()
 

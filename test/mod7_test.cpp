@@ -3,7 +3,8 @@
 #include <stdint.h>
 
 //Mod d=7(0x00000007) a=32 c32=0x24924925 over=0 cmp=0 e=00000003
-#define D 7
+//#define D 7
+#define D 12345
 //#define D 1234609
 //#define D 1073741823
 
@@ -12,6 +13,13 @@ const uint32_t d_ = D;
 const uint32_t a_ = 32;
 const uint32_t s_ = 1;
 const uint64_t c_ = 0x24924925;
+const bool cmp_ = false;
+#endif
+#if D == 12345
+const uint32_t d_ = D;
+const uint32_t a_ = 29;
+const uint32_t s_ = 0;
+const uint64_t c_ = 0xa9e1;
 const bool cmp_ = false;
 #endif
 #if D == 1234609
@@ -37,17 +45,18 @@ const bool cmp_ = false;
 #endif
 
 extern "C" {
-uint32_t mod7org(uint32_t x);
+uint32_t moddorg(uint32_t x);
+uint32_t moddnew(uint32_t x);
 }
 
-NOINLINE uint32_t mod7orgC(uint32_t x)
+NOINLINE uint32_t moddorgC(uint32_t x)
 {
 	return x % d_;
 }
 
-NOINLINE uint32_t mod7new(uint32_t x)
+NOINLINE uint32_t moddnewC(uint32_t x)
 {
-	uint32_t v = uint32_t((x * c_) >> a_);
+	uint64_t v = (x * c_) >> a_;
 	v *= d_;
 	if (x >= v) {
 		return x - v;
@@ -99,9 +108,10 @@ uint32_t loop1(DivFunc f)
 int main()
 {
 	uint32_t r0 = 0, r1 = 0;
-	CYBOZU_BENCH_C("org ", C, r0 += loop1, mod7org);
-	CYBOZU_BENCH_C("org ", C, r0 += loop1, mod7orgC);
-//	CYBOZU_BENCH_C("new ", C, r1 += loop1, mod7new);
+	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
+	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnewC);
+//	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
+//	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
 	if (r0 != r1) {
 		printf("ERR org2 =0x%08x\n", r1);
 	}
