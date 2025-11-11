@@ -4,6 +4,8 @@ from s_xbyak import *
 
 d = 12345
 
+N = 3
+
 def gen_moddorg():
   c = 0x53c1df1d
   a = 46
@@ -26,7 +28,8 @@ def gen_moddorg():
     with StackFrame(1, 0, useRDX=True) as sf:
       x = sf.p[0]
       x32 = x.changeBit(32)
-      raw(x32)
+      for i in range(N):
+        raw(x32)
 
 def gen_moddnew():
   c = 0xa9e1
@@ -44,7 +47,8 @@ def gen_moddnew():
   with FuncProc('moddnew'):
     with StackFrame(1, 0, useRDX=True) as sf:
       x = sf.p[0]
-      raw(x, x.changeBit(32))
+      for i in range(N):
+        raw(x, x.changeBit(32))
 
 
 
