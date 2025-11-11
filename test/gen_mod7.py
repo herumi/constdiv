@@ -32,27 +32,14 @@ def gen_moddnew():
   c = 0xa9e1
   a = 29
   def raw(x, x32):
-    mov(edx, c)
-    imul(rdx, rdx, x)
+    imul(rdx, x, c)
     shr(rdx, a)
-    imul(edx, edx, d)
+    imul(rdx, rdx, d)
     mov(eax, x32)
     sub(rax, rdx)
-    sbb(rcx, rcx)
-    and_(rcx, x)
-    add(eax, ecx)
+    lea(ecx, ptr(eax+d))
+    cmovc(eax, ecx)
 
-  """
-  c = 0x153c1df1d
-  a = 46
-  def raw(x, x32):
-    mov(rax, c)
-    imul(rax, x)
-    shr(rax, a)
-    imul(eax, eax, d)
-    sub(x32, eax)
-    mov(eax, x32)
-  """
   align(16)
   with FuncProc('moddnew'):
     with StackFrame(1, 0, useRDX=True) as sf:

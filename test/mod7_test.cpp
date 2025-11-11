@@ -99,8 +99,8 @@ uint32_t loop1(DivFunc f)
 	uint32_t sum = 0;
 	for (uint32_t x = 0; x < g_N; x++) {
 		sum += f(x);
-		sum += f(x * 2);
-		sum += f(x * 3);
+//		sum += f(x * 2);
+//		sum += f(x * 3);
 	}
 	return sum;
 }
@@ -109,7 +109,7 @@ int main()
 {
 	uint32_t r0 = 0, r1 = 0;
 	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
-	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnewC);
+	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
 //	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
 //	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
 	if (r0 != r1) {
