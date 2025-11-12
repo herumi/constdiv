@@ -96,7 +96,7 @@ typedef uint32_t (*DivFunc)(uint32_t);
 uint32_t g_N = uint32_t(1e8);
 const int C = 2;
 
-const int N = 2;
+const int N = 3;
 
 uint32_t loop1(DivFunc f)
 {
