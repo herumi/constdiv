@@ -7,7 +7,7 @@ d = 12345
 N = 3
 
 def gen_moddorg():
-  c = 0x53c1df1d
+  c = 0x153c1df1d
   a = 46
   def raw(x32):
     mov(eax, x32)
@@ -30,28 +30,40 @@ def gen_moddorg():
       x32 = x.changeBit(32)
       for i in range(N):
         raw(x32)
-        mov(x32, eax)
+        add(x32, eax)
 
-def gen_moddnew():
-  c = 0xa9e1
-  a = 29
+def gen_moddnew(mode):
   def raw(x, x32):
-    imul(rdx, x, c)
-    shr(rdx, a)
-    imul(rdx, rdx, d)
-    mov(eax, x32)
-    sub(rax, rdx)
-    lea(ecx, ptr(eax+d))
-    cmovc(eax, ecx)
+    if mode == 1:
+      c = 0x153c1df1d
+      a = 46
+      mov(edx, c & 0xffffffff)
+      imul(rdx, x)
+      shr(rdx, 32)
+      add(rdx, x)
+      shr(rdx, a - 32)
+      imul(rdx, rdx, d)
+      mov(eax, x32)
+      sub(eax, edx)
+    else:
+      c = 0xa9e1
+      a = 29
+      imul(rdx, x, c)
+      shr(rdx, a)
+      imul(rdx, rdx, d)
+      mov(eax, x32)
+      sub(rax, rdx)
+      lea(ecx, ptr(eax+d))
+      cmovc(eax, ecx)
 
   align(16)
-  with FuncProc('moddnew'):
-    with StackFrame(1, 0, useRDX=True) as sf:
+  with FuncProc(f'moddnew{mode}'):
+    with StackFrame(1, 0, useRCX=True, useRDX=True) as sf:
       x = sf.p[0]
       x32 = x.changeBit(32)
       for i in range(N):
         raw(x, x32)
-        mov(x32, eax)
+        add(x32, eax)
 
 
 
@@ -64,7 +76,8 @@ def main():
   segment('text')
 
   gen_moddorg()
-  gen_moddnew()
+  gen_moddnew(1)
+  gen_moddnew(2)
 
   term()
 

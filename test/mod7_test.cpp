@@ -46,7 +46,8 @@ const bool cmp_ = false;
 
 extern "C" {
 uint32_t moddorg(uint32_t x);
-uint32_t moddnew(uint32_t x);
+uint32_t moddnew1(uint32_t x);
+uint32_t moddnew2(uint32_t x);
 }
 
 NOINLINE uint32_t moddorgC(uint32_t x)
@@ -97,7 +98,9 @@ const int C = 2;
 uint32_t loop1(DivFunc f)
 {
 	uint32_t sum = 0;
-	for (int64_t _x = 0; _x <= 0xffffffff; _x++) {
+	const uint32_t MAX = 0xffffffff;
+//	const uint32_t MAX = uint32_t(1e9);
+	for (int64_t _x = 0; _x <= MAX; _x++) {
 		uint32_t x = uint32_t(_x);
 		sum += f(x);
 //		sum += f(x * 2);
@@ -108,12 +111,14 @@ uint32_t loop1(DivFunc f)
 
 int main()
 {
-	uint32_t r0 = 0, r1 = 0;
+	uint32_t r0 = 0, r1 = 0, r2 = 0;
 	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
-	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
-	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
-	CYBOZU_BENCH_C("new ", C, r1 += loop1, moddnew);
+	CYBOZU_BENCH_C("new1", C, r1 += loop1, moddnew1);
+	CYBOZU_BENCH_C("new2", C, r2 += loop1, moddnew2);
 	if (r0 != r1) {
-		printf("ERR org2 =0x%08x\n", r1);
+		printf("ERR1 r0=0x%08x r1=0x%08x\n", r0, r1);
+	}
+	if (r0 != r2) {
+		printf("ERR2 r0=0x%08x r2=0x%08x\n", r0, r2);
 	}
 }
