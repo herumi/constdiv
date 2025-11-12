@@ -35,6 +35,7 @@ def gen_moddorg():
 def gen_moddnew(mode):
   def raw(x, x32):
     if mode == 1:
+      # fast div and standard mod
       c = 0x153c1df1d
       a = 46
       mov(edx, c & 0xffffffff)
@@ -45,7 +46,21 @@ def gen_moddnew(mode):
       imul(rdx, rdx, d)
       mov(eax, x32)
       sub(eax, edx)
-    else:
+    elif mode == 0:
+      # slow
+      c = 0xa9e1
+      a = 29
+      imul(rdx, x, c)
+      shr(rdx, a)
+      imul(rdx, rdx, d)
+      mov(eax, x32)
+      sub(rax, rdx)
+      sbb(ecx, ecx)
+      mov(edx, d)
+      and_(edx, ecx)
+      add(eax, edx)
+    elif mode == 2:
+      # fast
       c = 0xa9e1
       a = 29
       imul(rdx, x, c)
@@ -55,6 +70,8 @@ def gen_moddnew(mode):
       sub(rax, rdx)
       lea(ecx, ptr(eax+d))
       cmovc(eax, ecx)
+    else:
+      raise Exception('invalid mode', mode)
 
   align(16)
   with FuncProc(f'moddnew{mode}'):
