@@ -106,7 +106,7 @@ struct ConstDiv {
 			c_ = c;
 			return true;
 		}
-		// u > 0 => A >= d => a >= ilog2(d)
+		// c > 1 => A >= d => a >= ilog2(d)
 		for (uint32_t a = ceil_ilog2(d); a < 64; a++) {
 			uint64_t A = one << a;
 			uint64_t c = (A + d - 1) / d;
@@ -188,17 +188,24 @@ struct ConstMod {
 			c_ = c;
 			return true;
 		}
-		// u > 0 => A >= d => a >= ilog2(d)
-		for (uint32_t a = ceil_ilog2(d); a < 64; a++) {
+		uint32_t a = ceil_ilog2(d);
+		if ((d & (d-1)) == 0) {
+			a_ = a;
+			A_ = uint64_t(1) << a;
+			c_ = 1;
+			return true;
+		}
+		// c > 1 => A >= d => a >= ilog2(d)
+		for (; a < 64; a++) {
 			uint64_t A = one << a;
 			uint64_t c = (A + d - 1) / d;
 			assert(c < (one << 33));
 			if (c >= (one << 33)) return false;
 			uint64_t e = d * c - A;
-			uint64_t f1 = e * M_d + A * (d-1);
-			uint64_t f2 = e * M + A * r0_;
-			uint64_t RHS = 2 * A * d;
-			if (f1 < RHS && f2 < RHS) {
+			if (c >= e && e * M_d + A * (d-1) < 2 * A * d) {
+				if (c > 0xffffffff) {
+					printf("over d=%x %" PRIu64 "\n", d, c);
+				}
 				a_ = a;
 				A_ = A;
 				c_ = c;
@@ -210,12 +217,8 @@ struct ConstMod {
 	}
 	uint32_t divd(uint32_t x) const
 	{
-		if (cmp_) {
-			return x >= d_;
-		}
-		if (c_ == 1) {
-			return x >> a_;
-		}
+		assert(!cmp_);
+		assert(c_ > 1);
 		if (c_ > 0xffffffff) {
 			uint64_t v = x * (c_ & 0xffffffff);
 			v >>= 32;
@@ -233,12 +236,15 @@ struct ConstMod {
 			if (x >= d_) x -= d_;
 			return x;
 		}
-		uint32_t v = divd(x) * d_;
-		if (x >= v) {
-			return x - v;
-		} else {
-			return x - v + d_;
+		if (c_ == 1) {
+			return x & (A_ - 1);
 		}
+		int64_t v = divd(x) * d_;
+		v = x - v;
+		if (v < 0) {
+			v += d_;
+		}
+		return uint32_t(v);
 	}
 };
 
