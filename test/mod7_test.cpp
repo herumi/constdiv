@@ -63,10 +63,16 @@ NOINLINE uint32_t moddnewC(uint32_t x)
 {
 	uint32_t v = (x * c_) >> a_;
 	int64_t y = int64_t(v) * d_;
+#if 0
 	if (x >= y) {
 		return x - y;
 	}
 	return x - y + d_;
+#else
+	y = x - y;
+	if (y < 0) y += d_;
+	return y;
+#endif
 }
 /*
 	# optimized mod7new
