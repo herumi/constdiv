@@ -106,8 +106,15 @@ struct ConstDiv {
 			c_ = c;
 			return true;
 		}
+		uint32_t a = ceil_ilog2(d);
+		if ((d & (d-1)) == 0) {
+			a_ = a;
+			A_ = uint64_t(1) << a;
+			c_ = 1;
+			return true;
+		}
 		// c > 1 => A >= d => a >= ilog2(d)
-		for (uint32_t a = ceil_ilog2(d); a < 64; a++) {
+		for (; a < 64; a++) {
 			uint64_t A = one << a;
 			uint64_t c = (A + d - 1) / d;
 			assert(c < (one << 33));
@@ -202,10 +209,12 @@ struct ConstMod {
 			assert(c < (one << 33));
 			if (c >= (one << 33)) return false;
 			uint64_t e = d * c - A;
-			if (c >= e && e * M_d + A * (d-1) < 2 * A * d) {
+			if (c >= e && e * M_d / A < d + 1) {
+#if 1
 				if (c > 0xffffffff) {
-					printf("over d=%x %" PRIu64 "\n", d, c);
+					continue;
 				}
+#endif
 				a_ = a;
 				A_ = A;
 				c_ = c;

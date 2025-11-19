@@ -95,8 +95,20 @@ void checkd(uint32_t d) {
 }
 #endif
 
-void checkmod(ConstMod& cm) {
-	printf("test x %% %u for all x\n", cm.d_);
+void checkmod(uint32_t d, bool allx = true) {
+	ConstDiv cd;
+	cd.init(d);
+	// skip x for 32bit c
+	if (cd.c_ <= 0xffffffff) {
+		return;
+	}
+	ConstMod cm;
+	if (!cm.init(d)) {
+		printf("INIT err d=0x%x\n", d);
+		return;
+	}
+	if (!allx) return;
+	cm.put();
 #pragma omp parallel for
 	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
 		uint32_t x = uint32_t(x_);
@@ -104,8 +116,8 @@ void checkmod(ConstMod& cm) {
 		uint32_t a = cm.modd(x);
 		if (o != a) {
 			cm.put();
-			printf("ERR x=%u o=%u a=%u\n", x, o, a);
-//			exit(1);
+			printf("ERR d=%u x=%u o=%u a=%u\n", d, x, o, a);
+			exit(1);
 		}
 	}
 	puts("ok");
@@ -129,6 +141,7 @@ int main(int argc, char *argv[])
 	bool benchOnly;
 	bool mod;
 	bool find33bit;
+	bool allx;
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
@@ -141,6 +154,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&benchOnly, "bench", "benchmark only");
 	opt.appendBoolOpt(&mod, "mod", "mod");
 	opt.appendBoolOpt(&find33bit, "f33", "find 33bit c");
+	opt.appendBoolOpt(&allx, "allx", "test all x");
 	opt.appendHelp("h");
 	if (opt.parse(argc, argv)) {
 		opt.put();
@@ -168,27 +182,11 @@ int main(int argc, char *argv[])
 			puts("mod check alld");
 #pragma omp parallel for
 			for (int d = 1; d <= 0x7fffffff; d++) {
-				ConstMod cm;
-				if (!cm.init(d)) {
-					printf("INIT ERR %x\n", d);
-					continue;
-				}
-				if (cm.c_ > 0xffffffff) {
-					printf("d=%d cm.c_ over\n", d);
-				}
-				checkmod(cm);
+				checkmod(d, allx);
 			}
 		} else {
 			puts("mod check d");
-			ConstMod cm;
-			if (!cm.init(d)) {
-				printf("err d=%d\n", d); exit(1);
-			}
-			cm.put();
-			if (cm.c_ > 0xffffffff) {
-				printf("d=%d cm.c_ over\n", d);
-			}
-			checkmod(cm);
+			checkmod(d);
 		}
 		return 0;
 	}
