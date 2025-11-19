@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 			}
 		} else {
 			puts("mod check d");
-			checkmod(d);
+			checkmod(d, allx);
 		}
 		return 0;
 	}

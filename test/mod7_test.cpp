@@ -1,3 +1,6 @@
+/*
+python3 gen_mod7.py -m gas > a.S && mycl mod7_test.cpp a.S && ./a.out
+*/
 #define CYBOZU_BENCH_CHRONO
 #include <cybozu/benchmark.hpp>
 #include <stdint.h>
@@ -58,13 +61,12 @@ NOINLINE uint32_t moddorgC(uint32_t x)
 
 NOINLINE uint32_t moddnewC(uint32_t x)
 {
-	uint64_t v = (x * c_) >> a_;
-	v *= d_;
-	if (x >= v) {
-		return x - v;
-	} else {
-		return x - v + d_;
+	uint32_t v = (x * c_) >> a_;
+	int64_t y = int64_t(v) * d_;
+	if (x >= y) {
+		return x - y;
 	}
+	return x - y + d_;
 }
 /*
 	# optimized mod7new
@@ -101,8 +103,8 @@ const int N = 3;
 uint32_t loop1(DivFunc f)
 {
 	uint32_t sum = 0;
-	const uint32_t MAX = 0xffffffff;
-//	const uint32_t MAX = uint32_t(1e9);
+//	const uint32_t MAX = 0xffffffff;
+	const uint32_t MAX = uint32_t(1e9);
 	for (int64_t _x = 0; _x <= MAX; _x++) {
 		uint32_t x = uint32_t(_x);
 		for (int i = 0; i < N; i++) {
@@ -115,6 +117,14 @@ uint32_t loop1(DivFunc f)
 int main()
 {
 	uint32_t r0 = 0, r;
+	CYBOZU_BENCH_C("orgC ", C, r0 += loop1, moddorgC);
+	r = 0;
+	CYBOZU_BENCH_C("newC ", C, r += loop1, moddnewC);
+	if (r0 != r) {
+		printf("ERR1 org=0x%08x new=0x%08x\n", r0, r);
+	}
+#ifdef __x86_64__
+	r0 = 0;
 	CYBOZU_BENCH_C("org ", C, r0 += loop1, moddorg);
 	r = 0;
 	CYBOZU_BENCH_C("new1", C, r += loop1, moddnew1);
@@ -126,4 +136,5 @@ int main()
 	if (r0 != r) {
 		printf("ERR2 org=0x%08x new=0x%08x\n", r0, r);
 	}
+#endif
 }
