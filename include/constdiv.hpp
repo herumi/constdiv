@@ -209,7 +209,8 @@ struct ConstMod {
 			assert(c < (one << 33));
 			if (c >= (one << 33)) return false;
 			uint64_t e = d * c - A;
-			if (c >= e && e * M_d / A < d + 1) {
+//			if (c >= e && e * M_d / A < d + 1) {
+			if (e * M_d / A < d + 1 && e * M / A < 2 * d - r0_) {
 #if 1
 				if (c > 0xffffffff) {
 					continue;

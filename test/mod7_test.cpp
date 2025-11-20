@@ -7,9 +7,10 @@ python3 gen_mod7.py -m gas > a.S && mycl mod7_test.cpp a.S && ./a.out
 
 //Mod d=7(0x00000007) a=32 c32=0x24924925 over=0 cmp=0 e=00000003
 //#define D 7
-#define D 12345
+//#define D 12345
 //#define D 1234609
 //#define D 1073741823
+#define D 0x31249255
 
 #if D == 7
 const uint32_t d_ = D;
@@ -38,6 +39,13 @@ const uint32_t d_ = D;
 const uint32_t a_ = 59;
 const uint32_t s_ = 29;
 const uint64_t c_ = 536870913;
+const bool cmp_ = false;
+#endif
+#if D == 0x31249255
+const uint32_t d_ = D;
+const uint32_t a_ = 31;
+const uint32_t s_ = 0;
+const uint64_t c_ = 3;
 const bool cmp_ = false;
 #endif
 
