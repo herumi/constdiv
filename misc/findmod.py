@@ -1,6 +1,6 @@
 import random
 
-def gcm(d, S):
+def gcd(d, S):
   while S != 0:
     (d, S) = (S, d % S)
   return d
@@ -23,8 +23,8 @@ def findMod(d, M=2**32-1):
     for s in [0]: #reversed(range(0, len_d)):
       S = 1 << s
       dS = d * S
-      # compute gcm(d, S)
-      g = gcm(d, S)
+      # compute gcd(d, S)
+      g = gcd(d, S)
       d_red = d // g
       if d_red == 1:
         break
