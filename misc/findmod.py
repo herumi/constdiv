@@ -29,15 +29,14 @@ def findMod(d, M=2**32-1):
       if d_red == 1:
         break
       S_red = S // g
-      u_red = pow(d_red, -1, S_red)
-      v_red = pow(S_red, -1, d_red)
-      assert((u_red * d_red + v_red * S_red) % (dS//g**2) == 1)
-      u = u_red * g
-      v = v_red * g
+      u = pow(d_red, -1, S_red)
+      v = pow(S_red, -1, d_red)
+      assert((u * d + v * S) % dS == g)
+
       # max(r - L) is r = d-g, L = 0
       # min(r - L) is r = 0, L = S-g
       xbp = (-v * S) % dS
-      xbm = (-u * d) % dS 
+      xbm = (-u * d) % dS
       xp = xbp + (M//dS)*dS
       if xp >= M:
         xp -= dS
