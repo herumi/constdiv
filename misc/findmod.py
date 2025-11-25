@@ -23,11 +23,10 @@ def findMod(d, M=2**32-1):
     for s in [0]: #reversed(range(0, len_d)):
       S = 1 << s
       dS = d * S
-      # compute gcd(d, S)
       g = gcd(d, S)
-      d_red = d // g
-      if d_red == 1:
+      if d == g:
         break
+      d_red = d // g
       S_red = S // g
       u = pow(d_red, -1, S_red)
       v = pow(S_red, -1, d_red)
@@ -35,12 +34,12 @@ def findMod(d, M=2**32-1):
 
       # max(r - L) is r = d-g, L = 0
       # min(r - L) is r = 0, L = S-g
-      xbp = (-v * S) % dS
-      xbm = (-u * d) % dS
-      xp = xbp + (M//dS)*dS
+      xmax0 = (-v * S) % dS
+      xmin0 = (-u * d) % dS
+      xp = xmax0 + (M//dS)*dS
       if xp >= M:
         xp -= dS
-      xm = xbm
+      xm = xmin0
       def get_y(x):
         (q, r) = divmod(x, d)
         (H, L) = divmod(x, S)
@@ -54,7 +53,7 @@ def findMod(d, M=2**32-1):
       (H, L) = divmod(xm, S)
 
       if (ym < 0 and yp - ym < maxV) or (ym >= 0 and yp < maxV):
-        print(f'{a=} {s=} {c=} {e=} {xp=} {xm=} {xbp=} {xbm=}')
+        print(f'{a=} {s=} {c=} {e=} {xp=} {xm=} {xmax0=} {xmin0=}')
         candi.append((a, s, c))
         break
   if not candi:
