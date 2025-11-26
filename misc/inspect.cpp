@@ -40,6 +40,6 @@ void inspect(uint32_t d, uint32_t a, uint32_t s)
 int main()
 {
 	inspect(123, 31, 5);
-	inspect(12345, 29, 0);
+	inspect(12345, 29, 7);
 //	inspect((1<<30)-1,59,29);
 }
