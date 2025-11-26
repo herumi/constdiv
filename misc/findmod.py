@@ -13,6 +13,7 @@ def findMod(d, M=2**32-1, slist=[]):
   (q_M, r_M) = divmod(M, d)
   if slist == []:
     slist = reversed(range(0, len_d))
+  print(f'{list(slist)=}')
   candi = []
   for a in range(len_d, len_d + len_M + 1):
     A = 1 << a
@@ -22,7 +23,7 @@ def findMod(d, M=2**32-1, slist=[]):
     if e >= c:
       continue
 
-    for s in slist:
+    for s in reversed(range(0, len_d)):
       S = 1 << s
       dS = d * S
       g = gcd(d, S)
@@ -58,7 +59,7 @@ def findMod(d, M=2**32-1, slist=[]):
       if (ymin < 0 and ymax - ymin < maxV) or (ymin >= 0 and ymax < maxV):
         print(f'{a=} {s=} {c=} {e=}\nmax={ymax} (x={xmax})\nmin={ymin} (y={xmin})\n{xmax0=} {xmin0=} {dS=}')
         candi.append((a, s, c))
-        return (a, s, c)
+#        return (a, s, c)
         break
   if not candi:
     raise Exception('no candidate found', d, M)
@@ -98,8 +99,10 @@ def testMod(d, M=2**32-1, slist=[]):
     checkMod(x, d, asc)
   print('OK')
 
-testMod(123, slist=[5])
-testMod(12345, slist=[7])
+testMod(123)
+testMod(12345)
+testMod(0xffff)
+testMod(0xfffffff)
 #testMod(2**30-1)
 #testMod(3329,65537)
 #testMod(7, 2**32-1)
