@@ -249,7 +249,7 @@ struct ConstMod {
 		if (c_ == 1) {
 			return x & (A_ - 1);
 		}
-		int64_t v = divd(x) * d_;
+		int64_t v = int64_t(divd(x)) * d_;
 		v = x - v;
 		if (v < 0) {
 			v += d_;

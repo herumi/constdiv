@@ -99,9 +99,12 @@ void checkmod(uint32_t d, bool allx = true) {
 	ConstDiv cd;
 	cd.init(d);
 	// skip x for 32bit c
+#if 1
 	if (cd.c_ <= 0xffffffff) {
+//		printf("skip d=0x%08x cd.c_=0x%09" PRIx64 "\n", d, cd.c_);
 		return;
 	}
+#endif
 	ConstMod cm;
 	if (!cm.init(d)) {
 		printf("INIT err d=0x%x\n", d);
