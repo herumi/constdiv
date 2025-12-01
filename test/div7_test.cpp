@@ -96,15 +96,17 @@ void checkd(uint32_t d) {
 #endif
 
 void checkmod(uint32_t d, bool allx = true) {
-	ConstDiv cd;
-	cd.init(d);
-	// skip x for 32bit c
+	{
+		ConstDiv cd;
+		cd.init(d);
+		// skip x for 32bit c
 #if 1
-	if (cd.c_ <= 0xffffffff) {
-//		printf("skip d=0x%08x cd.c_=0x%09" PRIx64 "\n", d, cd.c_);
-		return;
-	}
+		if (cd.c_ <= 0xffffffff) {
+//			printf("skip d=0x%08x cd.c_=0x%09" PRIx64 "\n", d, cd.c_);
+			return;
+		}
 #endif
+	}
 	ConstMod cm;
 	if (!cm.init(d)) {
 		printf("INIT err d=0x%x\n", d);
@@ -126,6 +128,36 @@ void checkmod(uint32_t d, bool allx = true) {
 	puts("ok");
 }
 
+void checkdm(uint32_t d) {
+	ConstDiv cd;
+	if (!cd.init(d)) {
+		printf("INIT cd err d=0x%x\n", d);
+		exit(1);
+	}
+	ConstDivMod cdm;
+	if (!cdm.init(d)) {
+		printf("INIT cdm err d=0x%x\n", d);
+		exit(1);
+	}
+	if (cd.cmp_ != cdm.cmp_) {
+		std::print("ERR d={} cmp={} {}\n", d, cd.cmp_, cdm.cmp_);
+		exit(1);
+	}
+	if (cd.cmp_) return;
+	if (cd.a_ != cdm.a_) {
+		std::print("ERR d={} a={} {}\n", d, cd.a_, cdm.a_);
+		exit(1);
+	}
+	if (cd.c_ != cdm.c_) {
+		std::print("ERR d={} c={} {}\n", d, cd.c_, cdm.c_);
+		exit(1);
+	}
+	if (cd.e_ != cdm.e_) {
+		std::print("ERR d={} e={} {}\n", d, cd.e_, cdm.e_);
+		exit(1);
+	}
+}
+
 CYBOZU_TEST_AUTO(log)
 {
 	for (uint32_t x = 1; x < 300; x++) {
@@ -145,6 +177,7 @@ int main(int argc, char *argv[])
 	bool mod;
 	bool find33bit;
 	bool allx;
+	bool newdm;
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
@@ -158,6 +191,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&mod, "mod", "mod");
 	opt.appendBoolOpt(&find33bit, "f33", "find 33bit c");
 	opt.appendBoolOpt(&allx, "allx", "test all x");
+	opt.appendBoolOpt(&newdm, "newdm", "new DivMod");
 	opt.appendHelp("h");
 	if (opt.parse(argc, argv)) {
 		opt.put();
@@ -168,6 +202,14 @@ int main(int argc, char *argv[])
 		return cybozu::test::autoRun.run(argc, argv);
 	}
 	g_d = d;
+	if (newdm) {
+#pragma omp parallel for
+		for (int d = 1; d <= 0x7fffffff; d++) {
+			checkdm(d);
+		}
+		puts("newdm ok");
+		return 0;
+	}
 	if (find33bit) {
 		for (int d = g_d; d <= 0x7fffffff; d += 2) {
 			ConstDiv cd;

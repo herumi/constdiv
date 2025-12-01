@@ -1,6 +1,9 @@
 #include <stdint.h>
 #include <fstream>
-//#include "uint128_t.hpp"
+#include <print>
+#include <bit>
+
+#include "uint128_t.hpp"
 
 /*
 M: integer >= 1.
@@ -62,7 +65,7 @@ This condition is the assumption of Thereom 1 in
 namespace constdiv {
 
 static const uint64_t one = 1;
-static inline uint32_t ceil_ilog2(uint32_t x)
+static inline constexpr uint32_t ceil_ilog2(uint32_t x)
 {
 	assert(x > 0);
 	uint32_t a = 0;
@@ -70,6 +73,12 @@ static inline uint32_t ceil_ilog2(uint32_t x)
 		if (x <= (one << a)) return a;
 		a++;
 	}
+}
+
+static inline constexpr uint64_t mask(uint32_t n)
+{
+	if (n == 64) return 0xffffffffffffffff;
+	return (one << n) - 1;
 }
 
 struct ConstDiv {
@@ -81,19 +90,26 @@ struct ConstDiv {
 	uint32_t d_;
 	uint32_t a_;
 	uint32_t e_;
-	uint32_t r0_;
+	uint32_t r_M_;
 	bool cmp_; // use comparison
-	ConstDiv() : A_(0), c_(0), d_(0), a_(0), e_(0), r0_(0), cmp_(false) {}
+	ConstDiv() : A_(0), c_(0), d_(0), a_(0), e_(0), r_M_(0), cmp_(false) {}
 	void put() const
 	{
-		printf("Div d=%u(0x%08x) a=%u c32=0x%08x over=%d cmp=%d e=%08x\n", d_, d_, a_, uint32_t(c_), c_ >= 0x100000000, cmp_, e_);
+//		printf("Div d=%u(0x%08x) a=%u c32=0x%08x over=%d cmp=%d e=%08x\n", d_, d_, a_, uint32_t(c_), c_ >= 0x100000000, cmp_, e_);
 	}
 	bool init(uint32_t d)
 	{
 		if (d > M) return false;
 		d_ = d;
-		r0_ = M % d;
-		const uint32_t M_d = (r0_ == d-1) ? M : M - r0_ - 1;
+		r_M_ = M % d;
+		const uint32_t M_d = (r_M_ == d-1) ? M : M - r_M_ - 1;
+		uint32_t a = ceil_ilog2(d);
+		if ((d & (d-1)) == 0) {
+			a_ = a;
+			A_ = one << a;
+			c_ = 1;
+			return true;
+		}
 		if (d > 0x80000000) {
 			cmp_ = true;
 			uint32_t a = 64;
@@ -104,13 +120,6 @@ struct ConstDiv {
 			a_ = a;
 			A_ = 0;
 			c_ = c;
-			return true;
-		}
-		uint32_t a = ceil_ilog2(d);
-		if ((d & (d-1)) == 0) {
-			a_ = a;
-			A_ = uint64_t(1) << a;
-			c_ = 1;
 			return true;
 		}
 		// c > 1 => A >= d => a >= ilog2(d)
@@ -170,9 +179,9 @@ struct ConstMod {
 	uint32_t d_;
 	uint32_t a_;
 	uint32_t e_;
-	uint32_t r0_;
+	uint32_t r_M_;
 	bool cmp_; // use comparison
-	ConstMod() : A_(0), c_(0), d_(0), a_(0), e_(0), r0_(0), cmp_(false) {}
+	ConstMod() : A_(0), c_(0), d_(0), a_(0), e_(0), r_M_(0), cmp_(false) {}
 	void put() const
 	{
 		printf("Mod d=%u(0x%08x) a=%u c32=0x%08x over=%d cmp=%d e=%08x\n", d_, d_, a_, uint32_t(c_), c_ >= 0x100000000, cmp_, e_);
@@ -181,8 +190,8 @@ struct ConstMod {
 	{
 		if (d > M) return false;
 		d_ = d;
-		r0_ = M % d;
-		const uint32_t M_d = (r0_ == d-1) ? M : M - r0_ - 1;
+		r_M_ = M % d;
+		const uint32_t M_d = (r_M_ == d-1) ? M : M - r_M_ - 1;
 		if (d > 0x80000000) {
 			cmp_ = true;
 			uint32_t a = 64;
@@ -210,7 +219,7 @@ struct ConstMod {
 			if (c >= (one << 33)) return false;
 			uint64_t e = d * c - A;
 //			if (c >= e && e * M_d / A < d + 1) {
-			if (e * M_d / A < d + 1 && e * M / A < 2 * d - r0_) {
+			if (e * M_d / A < d + 1 && e * M / A < 2 * d - r_M_) {
 #if 1
 				if (c > 0xffffffff) {
 					continue;
@@ -257,6 +266,79 @@ struct ConstMod {
 		return uint32_t(v);
 	}
 };
+
+struct ConstDivMod {
+	static const uint32_t N = 32;
+	static const uint64_t M = mask(N); // max dividend
+
+	uint32_t d_ = 0; // divisor
+	uint32_t r_M_ = 0; // M % d
+	uint32_t a_ = 0; // index of 2-power
+	bool cmp_ = false; // d > M_//2 ?
+	bool over_ = false; // c > (M+1) ?
+	uint64_t A_ = 0; // 2^a
+	uint64_t c_ = 0; // c = floor(A/d) = (A + d - 1) // d
+	uint64_t e_ = 0; // e = c d - A
+	void put() const
+	{
+		std::print("DivMod d={}(0x{:08x}) a={} c=0x{:x} c32={} e=0x{:x} cmp={} over={}\n", d_, d_, a_, c_, (c_ >> 32) != 0, e_, cmp_, over_);
+	}
+	bool init(uint32_t d)
+	{
+		if (d == 0 || d > M) return false;
+		d_ = d;
+		r_M_ = uint32_t(M % d);
+		const uint32_t M_d = (r_M_ == d-1) ? M : M - r_M_ - 1;
+		const uint32_t bitM = std::bit_width(M);
+		uint32_t a = std::bit_width(d);
+		if ((d & (d-1)) == 0) { // d is 2-power
+			a_ = a - 1;
+			c_ = 1;
+			return true;
+		}
+		if (d > M/2) {
+			cmp_ = true;
+			return true;
+		}
+		// c > 1 => A >= d => a >= ilog2(d)
+		a++;
+		for (; a < 128; a++) {
+			uint128_t A = uint128_t(one) << a;
+			uint128_t c = (A + d - 1) / d;
+			if (c >> (bitM+1)) return false;
+			uint64_t e = d * c - A;
+			if (e * M_d < A) {
+				a_ = a;
+				A_ = A;
+				c_ = uint64_t(c);
+				e_ = e;
+				over_ = (c >> bitM) != 0;
+				return true;
+			}
+		}
+		return false;
+	}
+	uint32_t divd(uint32_t x) const
+	{
+		if (cmp_) {
+			return x >= d_;
+		}
+		if (c_ == 1) {
+			return x >> a_;
+		}
+		if (c_ > 0xffffffff) {
+			uint64_t v = x * (c_ & 0xffffffff);
+			v >>= 32;
+			v += x;
+			v >>= a_-32;
+			return uint32_t(v);
+		} else {
+			uint32_t v = uint32_t((x * c_) >> a_);
+			return v;
+		}
+	}
+};
+
 
 typedef uint32_t (*DivFunc)(uint32_t);
 
