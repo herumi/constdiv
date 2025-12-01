@@ -11,7 +11,6 @@
 
 #include <atomic>
 //#define COUNT_33BIT
-//#define COUNT_DIFF
 
 extern "C" {
 
@@ -96,26 +95,24 @@ void checkd(uint32_t d) {
 #endif
 
 void checkmod(uint32_t d, bool allx = true) {
-	ConstDiv cd;
-	cd.init(d);
+	ConstDivMod cdm;
+	cdm.init(d);
 	// skip x for 32bit c
-	if (cd.c_ <= 0xffffffff) {
+#if 1
+	if (cdm.c_ <= 0xffffffff) {
+//		printf("skip d=0x%08x cdm.c_=0x%09" PRIx64 "\n", d, cdm.c_);
 		return;
 	}
-	ConstMod cm;
-	if (!cm.init(d)) {
-		printf("INIT err d=0x%x\n", d);
-		return;
-	}
+#endif
 	if (!allx) return;
-	cm.put();
+	cdm.put();
 #pragma omp parallel for
 	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
 		uint32_t x = uint32_t(x_);
-		uint32_t o = x % cm.d_;
-		uint32_t a = cm.modd(x);
+		uint32_t o = x % cdm.d_;
+		uint32_t a = cdm.modd(x);
 		if (o != a) {
-			cm.put();
+			cdm.put();
 			printf("ERR d=%u x=%u o=%u a=%u\n", d, x, o, a);
 			exit(1);
 		}
@@ -167,11 +164,11 @@ int main(int argc, char *argv[])
 	g_d = d;
 	if (find33bit) {
 		for (int d = g_d; d <= 0x7fffffff; d += 2) {
-			ConstDiv cd;
-			cd.init(d);
-			if (cd.c_ > 0xffffffff) {
+			ConstDivMod cdm;
+			cdm.init(d);
+			if (cdm.c_ > 0xffffffff) {
 				printf("find\n");
-				cd.put();
+				cdm.put();
 				return 1;
 			}
 		}
@@ -186,37 +183,28 @@ int main(int argc, char *argv[])
 			}
 		} else {
 			puts("mod check d");
-			checkmod(d);
+			checkmod(d, allx);
 		}
 		return 0;
 	}
 	if (alld) {
-#if defined(COUNT_33BIT) || defined(COUNT_DIFF)
+#if defined(COUNT_33BIT)
 		std::atomic<uint32_t> count{0};
 #endif
 		puts("check alld");
 #pragma omp parallel for
 		for (int d = 1; d <= 0x7fffffff; d++) {
-			ConstDiv cd;
-			if (!cd.init(d)) {
+			ConstDivMod cdm;
+			if (!cdm.init(d)) {
 				printf("err d=%d\n", d); exit(1);
 			}
 #ifdef COUNT_33BIT
-			if (cd.c_ > 0xffffffff) {
-				count++;
-			}
-#endif
-#ifdef COUNT_DIFF
-			// a = ceil(log2(d)) + 32 is a sufficient condition but not optimal.
-			// e.g., d = 18, 23, ...
-			uint32_t b = ConstDiv::ceil_ilog2(d) + 32;
-			if (b != cd.a_) {
-				printf("d=%u a=%u b=%u %d %d\n", d, cd.a_, b, cd.c_ > 0xffffffff, ((uint64_t(1) << b) + d - 1)/d > 0xffffffff);
+			if (cdm.c_ > 0xffffffff) {
 				count++;
 			}
 #endif
 		}
-#if defined(COUNT_33BIT) || defined(COUNT_DIFF)
+#if defined(COUNT_33BIT)
 		printf("count=%u (%.2f)\n", count.load(), count.load() / double(0x7fffffff - 1));
 #endif
 		puts("ok");
