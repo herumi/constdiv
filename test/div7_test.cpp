@@ -22,6 +22,9 @@ uint32_t div7org2(uint32_t x);
 
 using namespace constdiv;
 
+#define ConstDiv ConstDivMod
+#define ConstMod ConstDivMod
+
 uint32_t g_N = uint32_t(1e8);
 const int C = 10;
 uint32_t LP_N = 3;

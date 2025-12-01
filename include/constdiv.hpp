@@ -355,6 +355,27 @@ struct ConstDivMod {
 			return v;
 		}
 	}
+	uint32_t modd(uint32_t x) const
+	{
+		if (cmp_) {
+			if (x >= d_) x -= d_;
+			return x;
+		}
+		if (c_ == 1) {
+			return x & (d_ - 1);
+		}
+		if (over_) {
+			int64_t v = int64_t((x * c2_) >> a2_) * d_;
+			v = x - v;
+			if (v < 0) {
+				v += d_;
+			}
+			return uint32_t(v);
+		}
+		int64_t v = int64_t((x * c_) >> a_) * d_;
+		v = x - v;
+		return uint32_t(v);
+	}
 };
 
 
