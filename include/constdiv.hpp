@@ -274,14 +274,18 @@ struct ConstDivMod {
 	uint32_t d_ = 0; // divisor
 	uint32_t r_M_ = 0; // M % d
 	uint32_t a_ = 0; // index of 2-power
+	uint32_t a2_ = 0; // for mod
 	bool cmp_ = false; // d > M_//2 ?
 	bool over_ = false; // c > (M+1) ?
-	uint64_t A_ = 0; // 2^a
 	uint64_t c_ = 0; // c = floor(A/d) = (A + d - 1) // d
+	uint64_t c2_ = 0; // for mod
 	uint64_t e_ = 0; // e = c d - A
 	void put() const
 	{
 		std::print("DivMod d={}(0x{:08x}) a={} c=0x{:x} c32={} e=0x{:x} cmp={} over={}\n", d_, d_, a_, c_, (c_ >> 32) != 0, e_, cmp_, over_);
+		if (over_) {
+			std::print("mod a2={} c=0x{:x}\n", a2_, c2_);
+		}
 	}
 	bool init(uint32_t d)
 	{
@@ -289,10 +293,10 @@ struct ConstDivMod {
 		d_ = d;
 		r_M_ = uint32_t(M % d);
 		const uint32_t M_d = (r_M_ == d-1) ? M : M - r_M_ - 1;
-		const uint32_t bitM = std::bit_width(M);
-		uint32_t a = std::bit_width(d);
+		const uint32_t Mbit = std::bit_width(M);
+		const uint32_t dbit = std::bit_width(d);
 		if ((d & (d-1)) == 0) { // d is 2-power
-			a_ = a - 1;
+			a_ = dbit - 1;
 			c_ = 1;
 			return true;
 		}
@@ -301,19 +305,33 @@ struct ConstDivMod {
 			return true;
 		}
 		// c > 1 => A >= d => a >= ilog2(d)
-		a++;
-		for (; a < 128; a++) {
+		for (uint32_t a = dbit + 1; a < 128; a++) {
 			uint128_t A = uint128_t(one) << a;
 			uint128_t c = (A + d - 1) / d;
-			if (c >> (bitM+1)) return false;
+			if (c >> (Mbit+1)) return false;
 			uint64_t e = d * c - A;
 			if (e * M_d < A) {
 				a_ = a;
-				A_ = A;
 				c_ = uint64_t(c);
 				e_ = e;
-				over_ = (c >> bitM) != 0;
-				return true;
+				over_ = (c >> Mbit) != 0;
+
+				// for mod
+				for (uint32_t a2 = dbit + 1; a2 < 128; a2++) {
+					uint128_t A = uint128_t(one) << a2;
+					uint128_t c = (A + d - 1) / d;
+					if (c >> (Mbit+1)) return false;
+					uint64_t e = d * c - A;
+					if (e * M_d / A < d + 1 && e * M / A < 2 * d - r_M_) {
+						if (c >> Mbit) {
+							continue;
+						}
+						a2_ = a2;
+						c2_ = c;
+						return true;
+					}
+				}
+				return false;
 			}
 		}
 		return false;
@@ -326,7 +344,7 @@ struct ConstDivMod {
 		if (c_ == 1) {
 			return x >> a_;
 		}
-		if (c_ > 0xffffffff) {
+		if (over_) {
 			uint64_t v = x * (c_ & 0xffffffff);
 			v >>= 32;
 			v += x;
