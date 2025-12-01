@@ -65,14 +65,23 @@ This condition is the assumption of Thereom 1 in
 namespace constdiv {
 
 static const uint64_t one = 1;
+
 static inline constexpr uint32_t ceil_ilog2(uint32_t x)
 {
+#if 1
+	uint32_t a = std::bit_width(x);
+	if ((x & (x-1)) == 0) {
+		return a - 1;
+	}
+	return a;
+#else
 	assert(x > 0);
 	uint32_t a = 0;
 	for (;;) {
 		if (x <= (one << a)) return a;
 		a++;
 	}
+#endif
 }
 
 static inline constexpr uint64_t mask(uint32_t n)
@@ -80,95 +89,6 @@ static inline constexpr uint64_t mask(uint32_t n)
 	if (n == 64) return 0xffffffffffffffff;
 	return (one << n) - 1;
 }
-
-struct ConstDiv {
-	static const uint32_t N = 32;
-	static const uint64_t M = (one << N) - 1;
-
-	uint64_t A_;
-	uint64_t c_;
-	uint32_t d_;
-	uint32_t a_;
-	uint32_t e_;
-	uint32_t r_M_;
-	bool cmp_; // use comparison
-	ConstDiv() : A_(0), c_(0), d_(0), a_(0), e_(0), r_M_(0), cmp_(false) {}
-	void put() const
-	{
-//		printf("Div d=%u(0x%08x) a=%u c32=0x%08x over=%d cmp=%d e=%08x\n", d_, d_, a_, uint32_t(c_), c_ >= 0x100000000, cmp_, e_);
-	}
-	bool init(uint32_t d)
-	{
-		if (d > M) return false;
-		d_ = d;
-		r_M_ = M % d;
-		const uint32_t M_d = (r_M_ == d-1) ? M : M - r_M_ - 1;
-		uint32_t a = ceil_ilog2(d);
-		if ((d & (d-1)) == 0) {
-			a_ = a;
-			A_ = one << a;
-			c_ = 1;
-			return true;
-		}
-		if (d > 0x80000000) {
-			cmp_ = true;
-			uint32_t a = 64;
-			uint64_t c = 0xffffffffffffffff / d + 1;
-			if (c <= 0xffffffff || c >= (one << 33)) {
-				return false;
-			}
-			a_ = a;
-			A_ = 0;
-			c_ = c;
-			return true;
-		}
-		// c > 1 => A >= d => a >= ilog2(d)
-		for (; a < 64; a++) {
-			uint64_t A = one << a;
-			uint64_t c = (A + d - 1) / d;
-			assert(c < (one << 33));
-			if (c >= (one << 33)) return false;
-			uint64_t e = d * c - A;
-			if (e * M_d < A) {
-				a_ = a;
-				A_ = A;
-				c_ = c;
-				e_ = e;
-				return true;
-			}
-		}
-		return false;
-	}
-	uint32_t divd(uint32_t x) const
-	{
-		if (cmp_) {
-#if 0 // #ifdef MCL_DEFINED_UINT128_T
-			uint128_t v = (x * uint128_t(c_)) >> a_;
-			return uint32_t(v);
-#else
-			return x >= d_;
-#endif
-		}
-		if (c_ == 1) {
-			return x >> a_;
-		}
-		if (c_ > 0xffffffff) {
-#if 0 // #ifdef MCL_DEFINED_UINT128_T
-			uint128_t v = (x * uint128_t(c_)) >> a_;
-			return uint32_t(v);
-#else
-			uint64_t v = x * (c_ & 0xffffffff);
-			v >>= 32;
-			v += x;
-			v >>= a_-32;
-			return uint32_t(v);
-#endif
-		} else {
-			uint32_t v = uint32_t((x * c_) >> a_);
-			return v;
-		}
-	}
-};
 
 struct ConstDivMod {
 	static const uint32_t N = 32;
@@ -305,7 +225,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 	}
 	// eax = x/d
 	// use rax, rdx
-	void divRaw(const ConstDiv& cd, uint32_t mode, const Xbyak::Reg32& x)
+	void divRaw(const ConstDivMod& cd, uint32_t mode, const Xbyak::Reg32& x)
 	{
 		if (d_ >= 0x80000000) {
 			name[mode] = "cmp";
@@ -376,7 +296,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 		using namespace Xbyak::util;
 
 		d_ = d;
-		ConstDiv cd;
+		ConstDivMod cd;
 		if (!cd.init(d)) return false;
 		cd.put();
 		a_ = cd.a_;
@@ -444,7 +364,7 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 	// input x
 	// output x = x/d
 	// use w9, w10
-	void divRaw(const ConstDiv& cd, uint32_t mode, const Xbyak_aarch64::WReg& wx)
+	void divRaw(const ConstDivMod& cd, uint32_t mode, const Xbyak_aarch64::WReg& wx)
 	{
 		using namespace Xbyak_aarch64;
 		const XReg x = XReg(wx.getIdx());
@@ -502,7 +422,7 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 	bool init(uint32_t d, uint32_t lpN = 1)
 	{
 		using namespace Xbyak_aarch64;
-		ConstDiv cd;
+		ConstDivMod cd;
 		if (!cd.init(d)) return false;
 		cd.put();
 		d_ = cd.d_;
