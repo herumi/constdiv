@@ -313,7 +313,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 		if (cdm.c_ <= 0xffffffff) {
 			mov(eax, x);
 			if (cdm.c_ > 1) {
-				divName[mode] = "mul+shr";
+				modName[mode] = "mul+shr";
 				mov(edx, cdm.c_);
 				mul(rdx);
 				shr(rax, cdm.a_);
@@ -321,7 +321,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 				x_sub_qd(x);
 			} else {
 				// d is 2-power
-				divName[mode] = "and";
+				modName[mode] = "and";
 				mov(eax, x);
 				and_(eax, d_ - 1);
 			}
@@ -329,7 +329,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 		}
 		switch (mode) {
 		case 0:
-			divName[0] = "my1";
+			modName[0] = "my1";
 			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, x.cvt64());
 			shr(rax, 32);
@@ -340,7 +340,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			break;
 
 		case 1:
-			divName[1] = "my2";
+			modName[1] = "my2";
 			mov(edx, cdm.c2_ & 0xffffffff);
 			imul(rdx, x.cvt64());
 			shr(rdx, cdm.a2_);
@@ -351,9 +351,9 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			cmovc(eax, edx);
 			break;
 
-		case DIV_FUNC_N-1:
+		case MOD_FUNC_N-1:
 		default:
-			divName[DIV_FUNC_N-1] = "gcc";
+			modName[MOD_FUNC_N-1] = "gcc";
 			// generated asm code by gcc/clang
 			mov(edx, x);
 			mov(eax, cdm.c_ & 0xffffffff);
