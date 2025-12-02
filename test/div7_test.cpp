@@ -64,14 +64,14 @@ uint32_t loopOrg(uint32_t d)
 #ifdef CONST_DIV_GEN
 void loopGen(const ConstDivGen& cdg, uint32_t r0)
 {
-	uint32_t rs[FUNC_N] = {};
-	for (size_t i = 0; i < FUNC_N; i++) {
+	uint32_t rs[DIV_FUNC_N] = {};
+	for (size_t i = 0; i < DIV_FUNC_N; i++) {
 		DivFunc f = cdg.divLp[i];
 		char buf[64];
-		snprintf(buf, sizeof(buf), "%10s", cdg.name[i]);
+		snprintf(buf, sizeof(buf), "%10s", cdg.divName[i]);
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
-	for (size_t i = 0; i < FUNC_N; i++) {
+	for (size_t i = 0; i < DIV_FUNC_N; i++) {
 		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
 	}
 }
@@ -143,8 +143,8 @@ int main(int argc, char *argv[])
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
 #ifdef CONST_DIV_GEN
-	int mode;
-	opt.appendOpt(&mode, ConstDivGen::bestMode, "mode", "mode");
+	int divMode;
+	opt.appendOpt(&divMode, ConstDivGen::bestDivMode, "divmode", "div mode");
 #endif
 	opt.appendBoolOpt(&alld, "alld", "check all d");
 	opt.appendBoolOpt(&unitTest, "ut", "unit test only");
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
 	}
 #ifdef CONST_DIV_GEN
 	if (benchOnly) {
-		CYBOZU_BENCH_C("bench", C, cdg.divLp[mode], g_N);
+		CYBOZU_BENCH_C("bench", C, cdg.divLp[divMode], g_N);
 		return 0;
 	}
 	cdg.put();
