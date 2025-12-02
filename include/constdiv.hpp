@@ -295,42 +295,54 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 		}
 #endif
 	}
+	// input: x
+	// output: x = x * d
+	void fast_muli(const Xbyak::Reg64& x, uint32_t d, const Xbyak::Reg64& t)
+	{
+		assert(d < 0x80000000);
+		switch (d) {
+		case 1:
+			break;
+		case 2:
+			shl(x, 1);
+			break;
+		case 3:
+			lea(x, ptr[x+x*2]);
+			break;
+		case 4:
+			shl(x, 2);
+			break;
+		case 5:
+			lea(x, ptr[x+x*4]);
+			break;
+		case 6:
+			lea(x, ptr[x+x*2]);
+			shl(x, 2);
+			break;
+		case 7:
+			mov(t.cvt32(), x.cvt32());
+			shl(x, 3);
+			sub(x, t);
+			break;
+		case 8:
+			shl(x, 3);
+			break;
+		default:
+			if (d < 0x80000000) {
+				imul(x, x, d);
+			} else {
+				mov(t.cvt32(), d);
+				imul(x, x, t);
+			}
+			break;
+		}
+	}
 	// input: x, eax = q
 	// output: eax = q - d * x
 	// destroy: edx
 	void x_sub_qd(const Xbyak::Reg32& x)
 	{
-		switch (d_) {
-		case 1:
-			break;
-		case 2:
-			shl(rax, 1);
-			break;
-		case 3:
-			lea(rax, ptr[rax+rax*2]);
-			break;
-		case 4:
-			shl(rax, 2);
-			break;
-		case 5:
-			lea(rax, ptr[rax+rax*4]);
-			break;
-		case 6:
-			lea(rax, ptr[rax+rax*2]);
-			shl(rax, 2);
-			break;
-		case 7:
-			mov(edx, eax);
-			shl(rax, 3);
-			sub(rax, rdx);
-			break;
-		case 8:
-			shl(rax, 3);
-			break;
-		default:
-			imul(rax, rax, d_);
-			break;
-		}
+		fast_muli(rax, d_, rdx);
 		mov(edx, eax);
 		mov(eax, x.cvt32());
 		sub(eax, edx);
@@ -377,10 +389,10 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 
 		case 1:
 			modName[1] = "my2";
-			mov(edx, cdm.c2_ & 0xffffffff);
-			imul(rdx, x.cvt64());
+			mov(edx, x);
+			fast_muli(rdx, cdm.c2_ & 0xffffffff, rax);
 			shr(rdx, cdm.a2_);
-			imul(rdx, rdx, d_);
+			fast_muli(rdx, d_, rax);
 			mov(eax, x);
 			sub(rax, rdx);
 			lea(edx, ptr[eax + d_]);
