@@ -222,7 +222,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 	}
 	// eax = x/d
 	// use rax, rdx
-	void divRaw(const ConstDivMod& cd, uint32_t mode, const Xbyak::Reg32& x)
+	void divRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak::Reg32& x)
 	{
 		if (d_ >= 0x80000000) {
 			name[mode] = "cmp";
@@ -231,42 +231,42 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			setae(al);
 			return;
 		}
-		if (cd.c_ <= 0xffffffff) {
+		if (cdm.c_ <= 0xffffffff) {
 			mov(eax, x);
-			if (cd.c_ > 1) {
+			if (cdm.c_ > 1) {
 				name[mode] = "mul+shr";
-				mov(edx, cd.c_);
+				mov(edx, cdm.c_);
 				mul(rdx);
 			} else {
 				name[mode] = "shr";
 			}
-			shr(rax, cd.a_);
+			shr(rax, cdm.a_);
 			return;
 		}
 		if (mode == FUNC_N-1) {
 			name[FUNC_N-1] = "gcc";
 			// generated asm code by gcc/clang
 			mov(edx, x);
-			mov(eax, cd.c_ & 0xffffffff);
+			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, rdx);
 			shr(rax, 32);
 			sub(edx, eax);
 			shr(edx, 1);
 			add(eax, edx);
-			shr(eax, cd.a_ - 33);
+			shr(eax, cdm.a_ - 33);
 			return;
 		}
 		if (mode == FUNC_N-2) {
 			name[FUNC_N-2] = "my";
-			mov(eax, cd.c_ & 0xffffffff);
+			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, x.cvt64());
 			shr(rax, 32);
 			add(rax, x.cvt64());
-			shr(rax, cd.a_ - 32);
+			shr(rax, cdm.a_ - 32);
 			return;
 		}
 		mov(eax, x);
-		mov(rdx, cd.c_);
+		mov(rdx, cdm.c_);
 		static const char *nameTbl[] = {
 			"mul/mixed",
 			"mulx/mixed",
@@ -280,10 +280,77 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			mul(rdx);
 		}
 		if (mode & (1<<1)) {
-			shrd(rax, rdx, uint8_t(cd.a_));
+			shrd(rax, rdx, uint8_t(cdm.a_));
 		} else {
-			shr(rax, cd.a_);
-			shl(edx, 64 - cd.a_);
+			shr(rax, cdm.a_);
+			shl(edx, 64 - cdm.a_);
+			or_(eax, edx);
+		}
+	}
+	// eax = x/d
+	// use rax, rdx
+	void modRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak::Reg32& x)
+	{
+		if (d_ >= 0x80000000) {
+			name[mode] = "cmp";
+			xor_(eax, eax);
+			cmp(x, d_);
+			setae(al);
+			return;
+		}
+		if (cdm.c_ <= 0xffffffff) {
+			mov(eax, x);
+			if (cdm.c_ > 1) {
+				name[mode] = "mul+shr";
+				mov(edx, cdm.c_);
+				mul(rdx);
+			} else {
+				name[mode] = "shr";
+			}
+			shr(rax, cdm.a_);
+			return;
+		}
+		if (mode == FUNC_N-1) {
+			name[FUNC_N-1] = "gcc";
+			// generated asm code by gcc/clang
+			mov(edx, x);
+			mov(eax, cdm.c_ & 0xffffffff);
+			imul(rax, rdx);
+			shr(rax, 32);
+			sub(edx, eax);
+			shr(edx, 1);
+			add(eax, edx);
+			shr(eax, cdm.a_ - 33);
+			return;
+		}
+		if (mode == FUNC_N-2) {
+			name[FUNC_N-2] = "my";
+			mov(eax, cdm.c_ & 0xffffffff);
+			imul(rax, x.cvt64());
+			shr(rax, 32);
+			add(rax, x.cvt64());
+			shr(rax, cdm.a_ - 32);
+			return;
+		}
+		mov(eax, x);
+		mov(rdx, cdm.c_);
+		static const char *nameTbl[] = {
+			"mul/mixed",
+			"mulx/mixed",
+			"mul/shrd",
+			"mulx/shrd",
+		};
+		name[mode] = nameTbl[mode];
+		if (mode & (1<<0)) {
+			mulx(rdx, rax, rax);
+		} else {
+			mul(rdx);
+		}
+		if (mode & (1<<1)) {
+			shrd(rax, rdx, uint8_t(cdm.a_));
+		} else {
+			shr(rax, cdm.a_);
+			shl(edx, 64 - cdm.a_);
 			or_(eax, edx);
 		}
 	}
@@ -293,16 +360,16 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 		using namespace Xbyak::util;
 
 		d_ = d;
-		ConstDivMod cd;
-		if (!cd.init(d)) return false;
-		cd.put();
-		a_ = cd.a_;
+		ConstDivMod cdm;
+		if (!cdm.init(d)) return false;
+		cdm.put();
+		a_ = cdm.a_;
 		{
 			align(32);
 			divd = getCurr<DivFunc>();
 			StackFrame sf(this, 1, UseRDX);
 			const Reg32 x = sf.p[0].cvt32();
-			divRaw(cd, bestMode, x);
+			divRaw(cdm, bestMode, x);
 		}
 		for (uint32_t i = 0; i < FUNC_N; i++) {
 			align(32);
@@ -317,7 +384,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			Label lpL;
 			L(lpL);
 			for (uint32_t j = 0; j < lpN; j++) {
-				divRaw(cd, i, x);
+				divRaw(cdm, i, x);
 				add(sum, eax);
 			}
 			add(x, 1);
@@ -361,7 +428,7 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 	// input x
 	// output x = x/d
 	// use w9, w10
-	void divRaw(const ConstDivMod& cd, uint32_t mode, const Xbyak_aarch64::WReg& wx)
+	void divRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak_aarch64::WReg& wx)
 	{
 		using namespace Xbyak_aarch64;
 		const XReg x = XReg(wx.getIdx());
@@ -375,20 +442,20 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			cset(x, HS); // Higher or Same
 			return;
 		}
-		uint32_t cL = uint32_t(cd.c_ & 0xffff);
-		uint32_t cH = uint32_t((cd.c_ >> 16) & 0xffff);
-		if (cd.c_ > 1) {
+		uint32_t cL = uint32_t(cdm.c_ & 0xffff);
+		uint32_t cH = uint32_t((cdm.c_ >> 16) & 0xffff);
+		if (cdm.c_ > 1) {
 			mov(w9, cL);
 			movk(w9, cH, 16);
 		}
-		if (cd.c_ <= 0xffffffff) {
-			if (cd.c_ > 1) {
+		if (cdm.c_ <= 0xffffffff) {
+			if (cdm.c_ > 1) {
 				name[mode] = "mul+shr";
 				umull(x, wx, w9);
 			} else {
 				name[mode] = "shr";
 			}
-			lsr(x, x, cd.a_);
+			lsr(x, x, cdm.a_);
 			return;
 		}
 		switch (mode) {
@@ -396,14 +463,14 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			name[0] = "my";
 			umull(x9, wx, w9); // x9 = [cH:cL] * x
 			add(x, x, x9, LSR, 32); // x += x9 >> 32;
-			lsr(x, x, cd.a_ - 32);
+			lsr(x, x, cdm.a_ - 32);
 			return;
 		case 1:
 			name[1] = "mul64";
 			movk(x9, 1, 32); // x9 = c = [1:cH:cL]
 			mul(x10, x9, x);
 			umulh(x9, x9, x); // [x9:x10] = c * x
-			extr(x, x9, x10, cd.a_); // x = [x9:x10] >> a_
+			extr(x, x9, x10, cdm.a_); // x = [x9:x10] >> a_
 			return;
 		default:
 			name[2] = "clang";
@@ -412,22 +479,22 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			lsr(x9, x9, 32);
 			sub(w10, wx, w9);
 			add(w9, w9, w10, LSR, 1);
-			lsr(wx, w9, cd.a_ - 33);
+			lsr(wx, w9, cdm.a_ - 33);
 			return;
 		}
 	}
 	bool init(uint32_t d, uint32_t lpN = 1)
 	{
 		using namespace Xbyak_aarch64;
-		ConstDivMod cd;
-		if (!cd.init(d)) return false;
-		cd.put();
-		d_ = cd.d_;
-		a_ = cd.a_;
+		ConstDivMod cdm;
+		if (!cdm.init(d)) return false;
+		cdm.put();
+		d_ = cdm.d_;
+		a_ = cdm.a_;
 		{
 			align(32);
 			divd = getCurr<DivFunc>();
-			divRaw(cd, bestMode, w0);
+			divRaw(cdm, bestMode, w0);
 			ret();
 		}
 		for (uint32_t mode = 0; mode < FUNC_N; mode++) {
@@ -443,7 +510,7 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			L(lpL);
 			for (uint32_t j = 0; j < lpN; j++) {
 				mov(x, i);
-				divRaw(cd, mode, x);
+				divRaw(cdm, mode, x);
 				add(sum, sum, x);
 			}
 			add(i, i, 1);
