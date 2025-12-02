@@ -33,8 +33,10 @@ uint32_t loop1(FuncType f)
 {
 	uint32_t sum = 0;
 	for (uint32_t x = 0; x < g_N; x++) {
+		uint32_t t = x;
 		for (uint32_t i = 0; i < LP_N; i++) {
-			sum += f(x);
+			sum += f(t);
+			t += sum;
 		}
 	}
 	return sum;

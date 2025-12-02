@@ -203,14 +203,14 @@ typedef uint32_t (*FuncType)(uint32_t);
 
 #ifdef CONST_DIV_GEN_X64
 
-static const size_t DIV_FUNC_N = 1 + 5;
+static const size_t DIV_FUNC_N = 2;
 static const size_t MOD_FUNC_N = 3;
 
 struct ConstDivGen : Xbyak::CodeGenerator {
 	FuncType divd = nullptr;
 	FuncType divLp[DIV_FUNC_N] = {};
 	const char *divName[DIV_FUNC_N] = {};
-	static const int bestDivMode = DIV_FUNC_N-2;
+	static const int bestDivMode = 0;
 	uint32_t d_ = 0;
 	uint32_t a_ = 0;
 
@@ -258,8 +258,8 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			shr(eax, cdm.a_ - 33);
 			return;
 		}
-		if (mode == DIV_FUNC_N-2) {
-			divName[DIV_FUNC_N-2] = "my";
+		if (mode == bestDivMode) {
+			divName[bestDivMode] = "my";
 			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, x.cvt64());
 			shr(rax, 32);
@@ -267,6 +267,11 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			shr(rax, cdm.a_ - 32);
 			return;
 		}
+#if 0
+		/*
+			mul and mulx are almost same
+			shrd is slow
+		*/
 		mov(eax, x);
 		mov(rdx, cdm.c_);
 		static const char *nameTbl[] = {
@@ -288,13 +293,44 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			shl(edx, 64 - cdm.a_);
 			or_(eax, edx);
 		}
+#endif
 	}
 	// input: x, eax = q
 	// output: eax = q - d * x
 	// destroy: edx
 	void x_sub_qd(const Xbyak::Reg32& x)
 	{
-		imul(eax, eax, d_);
+		switch (d_) {
+		case 1:
+			break;
+		case 2:
+			shl(rax, 1);
+			break;
+		case 3:
+			lea(rax, ptr[rax+rax*2]);
+			break;
+		case 4:
+			shl(rax, 2);
+			break;
+		case 5:
+			lea(rax, ptr[rax+rax*4]);
+			break;
+		case 6:
+			lea(rax, ptr[rax+rax*2]);
+			shl(rax, 2);
+			break;
+		case 7:
+			mov(edx, eax);
+			shl(rax, 3);
+			sub(rax, rdx);
+			break;
+		case 8:
+			shl(rax, 3);
+			break;
+		default:
+			imul(rax, rax, d_);
+			break;
+		}
 		mov(edx, eax);
 		mov(eax, x.cvt32());
 		sub(eax, edx);
@@ -304,7 +340,7 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 	void modRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak::Reg32& x)
 	{
 		if (d_ >= 0x80000000) {
-			divName[mode] = "cmp";
+			modName[mode] = "cmp";
 			mov(eax, x);
 			sub(eax, d_);
 			cmovc(eax, x); // x < d ? x : x-d
@@ -394,18 +430,21 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 			for (uint32_t i = 0; i < n; i++) {
 				align(32);
 				lpTbl[i] = getCurr<FuncType>();
-				StackFrame sf(this, 1, 2|UseRDX);
+				StackFrame sf(this, 1, 3|UseRDX);
 				const Reg32 n = sf.p[0].cvt32();
 				const Reg32 sum = sf.t[0].cvt32();
 				const Reg32 x = sf.t[1].cvt32();
+				const Reg32 t = sf.t[2].cvt32();
 				xor_(sum, sum);
 				xor_(x, x);
 				align(32);
 				Label lpL;
 				L(lpL);
+				mov(t, x);
 				for (uint32_t j = 0; j < lpN; j++) {
-					(this->*f)(cdm, i, x);
+					(this->*f)(cdm, i, t);
 					add(sum, eax);
+					add(t, sum);
 				}
 				add(x, 1);
 				dec(n);
