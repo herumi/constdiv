@@ -62,7 +62,7 @@ uint32_t loopOrg(uint32_t d)
 }
 
 #ifdef CONST_DIV_GEN
-void loopGen(const ConstDivGen& cdg, uint32_t r0)
+void loopDiv(const ConstDivGen& cdg, uint32_t r0)
 {
 	uint32_t rs[DIV_FUNC_N] = {};
 	for (size_t i = 0; i < DIV_FUNC_N; i++) {
@@ -77,16 +77,18 @@ void loopGen(const ConstDivGen& cdg, uint32_t r0)
 }
 
 void checkd(uint32_t d) {
-	printf("test x/%u for all x\n", d);
+	printf("test %u for all x\n", d);
 	ConstDivGen cdg;
 	cdg.init(d);
 #pragma omp parallel for
 	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
 		uint32_t x = uint32_t(x_);
-		uint32_t o = x / d;
+		uint32_t q = x / d;
+		uint32_t r = x % d;
 		uint32_t a =cdg.divd(x);
-		if (o != a) {
-			printf("ERR x=%u o=%u a=%u\n", x, o, a);
+		uint32_t b =cdg.modd(x);
+		if (q != a || r != b) {
+			printf("ERR x=%u expected (%u %u) bad (%u %u)\n", x, q, r, a, b);
 			exit(1);
 		}
 	}
@@ -243,7 +245,7 @@ int main(int argc, char *argv[])
 	}
 	cdg.put();
 	cdg.dump();
-	loopGen(cdg, r0);
+	loopDiv(cdg, r0);
 
 	checkd(d);
 #endif
