@@ -17,6 +17,10 @@ extern "C" {
 uint32_t div7org(uint32_t x);
 uint32_t div7org2(uint32_t x);
 
+uint32_t mod7org(uint32_t x);
+uint32_t mod7org2(uint32_t x);
+
+
 } // extern "C"
 
 using namespace constdiv;
@@ -25,7 +29,7 @@ uint32_t g_N = uint32_t(1e8);
 const int C = 10;
 uint32_t LP_N = 3;
 
-uint32_t loop1(DivFunc f)
+uint32_t loop1(FuncType f)
 {
 	uint32_t sum = 0;
 	for (uint32_t x = 0; x < g_N; x++) {
@@ -36,7 +40,7 @@ uint32_t loop1(DivFunc f)
 	return sum;
 }
 
-DivFunc gen = 0;
+FuncType gen = 0;
 
 uint32_t g_d;
 
@@ -45,7 +49,13 @@ uint32_t divdorg(uint32_t x)
 	return x / g_d;
 }
 
-uint32_t loopOrg(uint32_t d)
+uint32_t modorg(uint32_t x)
+{
+	return x % g_d;
+}
+
+
+uint32_t loopDivOrg(uint32_t d)
 {
 	uint32_t r0 = 0, r1 = 0;
 	if (d == 7) {
@@ -61,32 +71,66 @@ uint32_t loopOrg(uint32_t d)
 	return r0;
 }
 
-#ifdef CONST_DIV_GEN
-void loopGen(const ConstDivGen& cdg, uint32_t r0)
+uint32_t loopModOrg(uint32_t d)
 {
-	uint32_t rs[FUNC_N] = {};
-	for (size_t i = 0; i < FUNC_N; i++) {
-		DivFunc f = cdg.divLp[i];
+	uint32_t r0 = 0, r1 = 0;
+	if (d == 7) {
+		CYBOZU_BENCH_C("org ", C, r0 += loop1, mod7org);
+		CYBOZU_BENCH_C("org2", C, r1 += loop1, mod7org2);
+		if (r0 != r1) {
+			printf("ERR org2 =0x%08x\n", r1);
+		}
+	} else {
+		CYBOZU_BENCH_C("org ", C, r0 += loop1, modorg);
+	}
+	printf("org  =0x%08x\n", r0);
+	return r0;
+}
+
+#ifdef CONST_DIV_GEN
+void loopDiv(const ConstDivGen& cdg, uint32_t r0)
+{
+	puts("loopDiv");
+	uint32_t rs[DIV_FUNC_N] = {};
+	for (size_t i = 0; i < DIV_FUNC_N; i++) {
+		FuncType f = cdg.divLp[i];
 		char buf[64];
-		snprintf(buf, sizeof(buf), "%10s", cdg.name[i]);
+		snprintf(buf, sizeof(buf), "%10s", cdg.divName[i]);
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
-	for (size_t i = 0; i < FUNC_N; i++) {
+	for (size_t i = 0; i < DIV_FUNC_N; i++) {
+		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
+	}
+}
+
+void loopMod(const ConstDivGen& cdg, uint32_t r0)
+{
+	puts("loopMod");
+	uint32_t rs[MOD_FUNC_N] = {};
+	for (size_t i = 0; i < MOD_FUNC_N; i++) {
+		FuncType f = cdg.modLp[i];
+		char buf[64];
+		snprintf(buf, sizeof(buf), "%10s", cdg.modName[i]);
+		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
+	}
+	for (size_t i = 0; i < MOD_FUNC_N; i++) {
 		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
 	}
 }
 
 void checkd(uint32_t d) {
-	printf("test x/%u for all x\n", d);
+	printf("test %u for all x\n", d);
 	ConstDivGen cdg;
 	cdg.init(d);
 #pragma omp parallel for
 	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
 		uint32_t x = uint32_t(x_);
-		uint32_t o = x / d;
+		uint32_t q = x / d;
+		uint32_t r = x % d;
 		uint32_t a =cdg.divd(x);
-		if (o != a) {
-			printf("ERR x=%u o=%u a=%u\n", x, o, a);
+		uint32_t b =cdg.modd(x);
+		if (q != a || r != b) {
+			printf("ERR x=%u expected (%u %u) bad (%u %u)\n", x, q, r, a, b);
 			exit(1);
 		}
 	}
@@ -143,8 +187,8 @@ int main(int argc, char *argv[])
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
 #ifdef CONST_DIV_GEN
-	int mode;
-	opt.appendOpt(&mode, ConstDivGen::bestMode, "mode", "mode");
+	int divMode;
+	opt.appendOpt(&divMode, ConstDivGen::bestDivMode, "divmode", "div mode");
 #endif
 	opt.appendBoolOpt(&alld, "alld", "check all d");
 	opt.appendBoolOpt(&unitTest, "ut", "unit test only");
@@ -232,18 +276,21 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 #endif
-	uint32_t r0 = 0;
+	uint32_t divOk = 0;
+	uint32_t modOk = 0;
 	if (!benchOnly) {
-		r0 = loopOrg(d);
+		divOk = loopDivOrg(d);
+		modOk = loopModOrg(d);
 	}
 #ifdef CONST_DIV_GEN
 	if (benchOnly) {
-		CYBOZU_BENCH_C("bench", C, cdg.divLp[mode], g_N);
+		CYBOZU_BENCH_C("bench", C, cdg.divLp[divMode], g_N);
 		return 0;
 	}
 	cdg.put();
 	cdg.dump();
-	loopGen(cdg, r0);
+	loopDiv(cdg, divOk);
+	loopMod(cdg, modOk);
 
 	checkd(d);
 #endif

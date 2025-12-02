@@ -91,9 +91,6 @@ static inline constexpr uint64_t mask(uint32_t n)
 }
 
 struct ConstDivMod {
-	static const uint32_t N = 32;
-	static const uint64_t M = mask(N); // max dividend
-
 	uint32_t d_ = 0; // divisor
 	uint32_t r_M_ = 0; // M % d
 	uint32_t a_ = 0; // index of 2-power
@@ -110,7 +107,7 @@ struct ConstDivMod {
 			std::print("mod a2={} c=0x{:x}\n", a2_, c2_);
 		}
 	}
-	bool init(uint32_t d)
+	bool init(uint32_t d, uint64_t M = 0xffffffff)
 	{
 		if (d == 0 || d > M) return false;
 		d_ = d;
@@ -202,92 +199,173 @@ struct ConstDivMod {
 };
 
 
-typedef uint32_t (*DivFunc)(uint32_t);
+typedef uint32_t (*FuncType)(uint32_t);
 
 #ifdef CONST_DIV_GEN_X64
 
-static const size_t FUNC_N = 1 + 5;
+static const size_t DIV_FUNC_N = 1 + 5;
+static const size_t MOD_FUNC_N = 3;
 
 struct ConstDivGen : Xbyak::CodeGenerator {
-	DivFunc divd;
-	DivFunc divLp[FUNC_N];
-	const char *name[FUNC_N];
-	static const int bestMode = FUNC_N-2;
-	uint32_t d_;
-	uint32_t a_;
+	FuncType divd = nullptr;
+	FuncType divLp[DIV_FUNC_N] = {};
+	const char *divName[DIV_FUNC_N] = {};
+	static const int bestDivMode = DIV_FUNC_N-2;
+	uint32_t d_ = 0;
+	uint32_t a_ = 0;
+
+	FuncType modd = nullptr;
+	FuncType modLp[MOD_FUNC_N];
+	const char *modName[MOD_FUNC_N] = {};
+	static const int bestModMode = 0;
 	ConstDivGen()
 		: Xbyak::CodeGenerator(4096, Xbyak::DontSetProtectRWE)
-		, divd(nullptr)
-		, divLp{}
-		, d_(0)
-		, a_(0)
 	{
 	}
 	// eax = x/d
 	// use rax, rdx
-	void divRaw(const ConstDivMod& cd, uint32_t mode, const Xbyak::Reg32& x)
+	void divRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak::Reg32& x)
 	{
 		if (d_ >= 0x80000000) {
-			name[mode] = "cmp";
+			divName[mode] = "cmp";
 			xor_(eax, eax);
 			cmp(x, d_);
 			setae(al);
 			return;
 		}
-		if (cd.c_ <= 0xffffffff) {
+		if (cdm.c_ <= 0xffffffff) {
 			mov(eax, x);
-			if (cd.c_ > 1) {
-				name[mode] = "mul+shr";
-				mov(edx, cd.c_);
+			if (cdm.c_ > 1) {
+				divName[mode] = "mul+shr";
+				mov(edx, cdm.c_);
 				mul(rdx);
 			} else {
-				name[mode] = "shr";
+				divName[mode] = "shr";
 			}
-			shr(rax, cd.a_);
+			shr(rax, cdm.a_);
 			return;
 		}
-		if (mode == FUNC_N-1) {
-			name[FUNC_N-1] = "gcc";
+		if (mode == DIV_FUNC_N-1) {
+			divName[DIV_FUNC_N-1] = "gcc";
 			// generated asm code by gcc/clang
 			mov(edx, x);
-			mov(eax, cd.c_ & 0xffffffff);
+			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, rdx);
 			shr(rax, 32);
 			sub(edx, eax);
 			shr(edx, 1);
 			add(eax, edx);
-			shr(eax, cd.a_ - 33);
+			shr(eax, cdm.a_ - 33);
 			return;
 		}
-		if (mode == FUNC_N-2) {
-			name[FUNC_N-2] = "my";
-			mov(eax, cd.c_ & 0xffffffff);
+		if (mode == DIV_FUNC_N-2) {
+			divName[DIV_FUNC_N-2] = "my";
+			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, x.cvt64());
 			shr(rax, 32);
 			add(rax, x.cvt64());
-			shr(rax, cd.a_ - 32);
+			shr(rax, cdm.a_ - 32);
 			return;
 		}
 		mov(eax, x);
-		mov(rdx, cd.c_);
+		mov(rdx, cdm.c_);
 		static const char *nameTbl[] = {
 			"mul/mixed",
 			"mulx/mixed",
 			"mul/shrd",
 			"mulx/shrd",
 		};
-		name[mode] = nameTbl[mode];
+		divName[mode] = nameTbl[mode];
 		if (mode & (1<<0)) {
 			mulx(rdx, rax, rax);
 		} else {
 			mul(rdx);
 		}
 		if (mode & (1<<1)) {
-			shrd(rax, rdx, uint8_t(cd.a_));
+			shrd(rax, rdx, uint8_t(cdm.a_));
 		} else {
-			shr(rax, cd.a_);
-			shl(edx, 64 - cd.a_);
+			shr(rax, cdm.a_);
+			shl(edx, 64 - cdm.a_);
 			or_(eax, edx);
+		}
+	}
+	// input: x, eax = q
+	// output: eax = q - d * x
+	// destroy: edx
+	void x_sub_qd(const Xbyak::Reg32& x)
+	{
+		imul(eax, eax, d_);
+		mov(edx, eax);
+		mov(eax, x.cvt32());
+		sub(eax, edx);
+	}
+	// eax = x/d
+	// use rax, rdx
+	void modRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak::Reg32& x)
+	{
+		if (d_ >= 0x80000000) {
+			divName[mode] = "cmp";
+			mov(eax, x);
+			sub(eax, d_);
+			cmovc(eax, x); // x < d ? x : x-d
+			return;
+		}
+		if (cdm.c_ <= 0xffffffff) {
+			mov(eax, x);
+			if (cdm.c_ > 1) {
+				modName[mode] = "mul+shr";
+				mov(edx, cdm.c_);
+				mul(rdx);
+				shr(rax, cdm.a_);
+
+				x_sub_qd(x);
+			} else {
+				// d is 2-power
+				modName[mode] = "and";
+				mov(eax, x);
+				and_(eax, d_ - 1);
+			}
+			return;
+		}
+		switch (mode) {
+		case 0:
+			modName[0] = "my1";
+			mov(eax, cdm.c_ & 0xffffffff);
+			imul(rax, x.cvt64());
+			shr(rax, 32);
+			add(rax, x.cvt64());
+			shr(rax, cdm.a_ - 32);
+
+			x_sub_qd(x);
+			break;
+
+		case 1:
+			modName[1] = "my2";
+			mov(edx, cdm.c2_ & 0xffffffff);
+			imul(rdx, x.cvt64());
+			shr(rdx, cdm.a2_);
+			imul(rdx, rdx, d_);
+			mov(eax, x);
+			sub(rax, rdx);
+			lea(edx, ptr[eax + d_]);
+			cmovc(eax, edx);
+			break;
+
+		case MOD_FUNC_N-1:
+		default:
+			modName[MOD_FUNC_N-1] = "gcc";
+			// generated asm code by gcc/clang
+			mov(edx, x);
+			mov(eax, cdm.c_ & 0xffffffff);
+			imul(rax, rdx);
+			shr(rax, 32);
+			sub(edx, eax);
+			shr(edx, 1);
+			add(eax, edx);
+			shr(eax, cdm.a_ - 33);
+
+			x_sub_qd(x);
+			break;
 		}
 	}
 	bool init(uint32_t d, uint32_t lpN = 1)
@@ -296,37 +374,44 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 		using namespace Xbyak::util;
 
 		d_ = d;
-		ConstDivMod cd;
-		if (!cd.init(d)) return false;
-		cd.put();
-		a_ = cd.a_;
-		{
-			align(32);
-			divd = getCurr<DivFunc>();
-			StackFrame sf(this, 1, UseRDX);
-			const Reg32 x = sf.p[0].cvt32();
-			divRaw(cd, bestMode, x);
-		}
-		for (uint32_t i = 0; i < FUNC_N; i++) {
-			align(32);
-			divLp[i] = getCurr<DivFunc>();
-			StackFrame sf(this, 1, 2|UseRDX);
-			const Reg32 n = sf.p[0].cvt32();
-			const Reg32 sum = sf.t[0].cvt32();
-			const Reg32 x = sf.t[1].cvt32();
-			xor_(sum, sum);
-			xor_(x, x);
-			align(32);
-			Label lpL;
-			L(lpL);
-			for (uint32_t j = 0; j < lpN; j++) {
-				divRaw(cd, i, x);
-				add(sum, eax);
+		ConstDivMod cdm;
+		if (!cdm.init(d)) return false;
+		cdm.put();
+		a_ = cdm.a_;
+		for (int j = 0; j < 2; j++) {
+			auto f = j == 0 ? &ConstDivGen::divRaw : &ConstDivGen::modRaw;
+			const uint32_t n = j == 0 ? DIV_FUNC_N : MOD_FUNC_N;
+			int bestMode = j == 0 ? bestDivMode : bestModMode;
+			auto funcPtr = j == 0 ? &divd : &modd;
+			auto lpTbl = j == 0 ? divLp : modLp;
+			{
+				align(32);
+				*funcPtr = getCurr<FuncType>();
+				StackFrame sf(this, 1, UseRDX);
+				const Reg32 x = sf.p[0].cvt32();
+				(this->*f)(cdm, bestMode, x);
 			}
-			add(x, 1);
-			dec(n);
-			jnz(lpL);
-			mov(eax, sum);
+			for (uint32_t i = 0; i < n; i++) {
+				align(32);
+				lpTbl[i] = getCurr<FuncType>();
+				StackFrame sf(this, 1, 2|UseRDX);
+				const Reg32 n = sf.p[0].cvt32();
+				const Reg32 sum = sf.t[0].cvt32();
+				const Reg32 x = sf.t[1].cvt32();
+				xor_(sum, sum);
+				xor_(x, x);
+				align(32);
+				Label lpL;
+				L(lpL);
+				for (uint32_t j = 0; j < lpN; j++) {
+					(this->*f)(cdm, i, x);
+					add(sum, eax);
+				}
+				add(x, 1);
+				dec(n);
+				jnz(lpL);
+				mov(eax, sum);
+			}
 		}
 		setProtectModeRE();
 		return true;
@@ -344,13 +429,13 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 
 #elif defined(CONST_DIV_GEN_AARCH64)
 
-static const size_t FUNC_N = 3;
+static const size_t DIV_FUNC_N = 3;
 
 struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
-	DivFunc divd;
-	DivFunc divLp[FUNC_N];
-	const char *name[FUNC_N];
-	static const int bestMode = 0;
+	FuncType divd;
+	FuncType divLp[DIV_FUNC_N];
+	const char *divName[DIV_FUNC_N];
+	static const int bestDivMode = 0;
 	uint32_t d_;
 	uint32_t a_;
 	ConstDivGen()
@@ -364,12 +449,12 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 	// input x
 	// output x = x/d
 	// use w9, w10
-	void divRaw(const ConstDivMod& cd, uint32_t mode, const Xbyak_aarch64::WReg& wx)
+	void divRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak_aarch64::WReg& wx)
 	{
 		using namespace Xbyak_aarch64;
 		const XReg x = XReg(wx.getIdx());
 		if (d_ >= 0x80000000) {
-			name[mode] = "cmp";
+			divName[mode] = "cmp";
 			uint32_t dL = uint32_t(d_ & 0xffff);
 			uint32_t dH = uint32_t(d_ >> 16);
 			mov(w9, dL);
@@ -378,64 +463,64 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			cset(x, HS); // Higher or Same
 			return;
 		}
-		uint32_t cL = uint32_t(cd.c_ & 0xffff);
-		uint32_t cH = uint32_t((cd.c_ >> 16) & 0xffff);
-		if (cd.c_ > 1) {
+		uint32_t cL = uint32_t(cdm.c_ & 0xffff);
+		uint32_t cH = uint32_t((cdm.c_ >> 16) & 0xffff);
+		if (cdm.c_ > 1) {
 			mov(w9, cL);
 			movk(w9, cH, 16);
 		}
-		if (cd.c_ <= 0xffffffff) {
-			if (cd.c_ > 1) {
-				name[mode] = "mul+shr";
+		if (cdm.c_ <= 0xffffffff) {
+			if (cdm.c_ > 1) {
+				divName[mode] = "mul+shr";
 				umull(x, wx, w9);
 			} else {
-				name[mode] = "shr";
+				divName[mode] = "shr";
 			}
-			lsr(x, x, cd.a_);
+			lsr(x, x, cdm.a_);
 			return;
 		}
 		switch (mode) {
 		case 0:
-			name[0] = "my";
+			divName[0] = "my";
 			umull(x9, wx, w9); // x9 = [cH:cL] * x
 			add(x, x, x9, LSR, 32); // x += x9 >> 32;
-			lsr(x, x, cd.a_ - 32);
+			lsr(x, x, cdm.a_ - 32);
 			return;
 		case 1:
-			name[1] = "mul64";
+			divName[1] = "mul64";
 			movk(x9, 1, 32); // x9 = c = [1:cH:cL]
 			mul(x10, x9, x);
 			umulh(x9, x9, x); // [x9:x10] = c * x
-			extr(x, x9, x10, cd.a_); // x = [x9:x10] >> a_
+			extr(x, x9, x10, cdm.a_); // x = [x9:x10] >> a_
 			return;
 		default:
-			name[2] = "clang";
+			divName[2] = "clang";
 			// same code generated by clang
 			umull(x9, wx, w9);
 			lsr(x9, x9, 32);
 			sub(w10, wx, w9);
 			add(w9, w9, w10, LSR, 1);
-			lsr(wx, w9, cd.a_ - 33);
+			lsr(wx, w9, cdm.a_ - 33);
 			return;
 		}
 	}
 	bool init(uint32_t d, uint32_t lpN = 1)
 	{
 		using namespace Xbyak_aarch64;
-		ConstDivMod cd;
-		if (!cd.init(d)) return false;
-		cd.put();
-		d_ = cd.d_;
-		a_ = cd.a_;
+		ConstDivMod cdm;
+		if (!cdm.init(d)) return false;
+		cdm.put();
+		d_ = cdm.d_;
+		a_ = cdm.a_;
 		{
 			align(32);
-			divd = getCurr<DivFunc>();
-			divRaw(cd, bestMode, w0);
+			divd = getCurr<FuncType>();
+			divRaw(cdm, bestDivMode, w0);
 			ret();
 		}
-		for (uint32_t mode = 0; mode < FUNC_N; mode++) {
+		for (uint32_t mode = 0; mode < DIV_FUNC_N; mode++) {
 			align(32);
-			divLp[mode] = getCurr<DivFunc>();
+			divLp[mode] = getCurr<FuncType>();
 			const auto n = w0;
 			const auto sum = w1;
 			const auto x = w2;
@@ -446,7 +531,7 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			L(lpL);
 			for (uint32_t j = 0; j < lpN; j++) {
 				mov(x, i);
-				divRaw(cd, mode, x);
+				divRaw(cdm, mode, x);
 				add(sum, sum, x);
 			}
 			add(i, i, 1);
