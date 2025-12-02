@@ -25,7 +25,7 @@ uint32_t g_N = uint32_t(1e8);
 const int C = 10;
 uint32_t LP_N = 3;
 
-uint32_t loop1(DivFunc f)
+uint32_t loop1(FuncType f)
 {
 	uint32_t sum = 0;
 	for (uint32_t x = 0; x < g_N; x++) {
@@ -36,7 +36,7 @@ uint32_t loop1(DivFunc f)
 	return sum;
 }
 
-DivFunc gen = 0;
+FuncType gen = 0;
 
 uint32_t g_d;
 
@@ -66,7 +66,7 @@ void loopGen(const ConstDivGen& cdg, uint32_t r0)
 {
 	uint32_t rs[DIV_FUNC_N] = {};
 	for (size_t i = 0; i < DIV_FUNC_N; i++) {
-		DivFunc f = cdg.divLp[i];
+		FuncType f = cdg.divLp[i];
 		char buf[64];
 		snprintf(buf, sizeof(buf), "%10s", cdg.divName[i]);
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
