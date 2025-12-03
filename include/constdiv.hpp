@@ -483,6 +483,11 @@ struct ConstDivGen : Xbyak::CodeGenerator {
 static const size_t DIV_FUNC_N = 3;
 static const size_t MOD_FUNC_N = 3;
 
+static inline Xbyak_aarch64::WReg cvt32(const Xbyak_aarch64::Reg& x)
+{
+	return Xbyak_aarch64::WReg(x.getIdx());
+}
+
 struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 	FuncType divd = nullptr;
 	FuncType divLp[DIV_FUNC_N] = {};
@@ -499,10 +504,10 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 	// input x
 	// output x = x/d
 	// use w9, w10
-	void divRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak_aarch64::WReg& wx)
+	void divRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak_aarch64::XReg& x)
 	{
 		using namespace Xbyak_aarch64;
-		const XReg x = XReg(wx.getIdx());
+		const auto wx = cvt32(x);
 		if (d_ >= 0x80000000) {
 			divName[mode] = "cmp";
 			mov_imm(w9, uint32_t(d_));
@@ -549,16 +554,38 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 		}
 	}
 
-	void x_sub_qd(const Xbyak_aarch64::WReg& wx)
+	// x *= y, using t
+	void fast_muli(const Xbyak_aarch64::XReg& x, uint32_t y, const Xbyak_aarch64::XReg& t)
 	{
+		if (x.getIdx() == t.getIdx()) {
+			fprintf(stderr, "same regs are not allowed\n");
+			exit(1);
+		}
+		const auto wx = cvt32(x);
+		const auto wt = cvt32(t);
+		switch (y) {
+		default:
+			mov_imm(wt, y);
+			umull(x, wx, wt);
+			break;
+		}
+	}
+
+	// input:  x, q
+	// output: x -= q * d
+	// destroy: q
+	void x_sub_qd(const Xbyak_aarch64::XReg& x, const Xbyak_aarch64::XReg& q, uint32_t d, const Xbyak_aarch64::XReg& t)
+	{
+		fast_muli(q, d, t); // t = x * d
+		sub(x, x, t);
 	}
 	// input x
 	// output x = x % d
 	// use w9, w10
-	void modRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak_aarch64::WReg& wx)
+	void modRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak_aarch64::XReg& x)
 	{
 		using namespace Xbyak_aarch64;
-		const XReg x = XReg(wx.getIdx());
+		const auto wx = cvt32(x);
 		if (d_ >= 0x80000000) {
 			modName[mode] = "cmp";
 			mov_imm(w9, uint32_t(d_));
@@ -573,9 +600,9 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 		if (cdm.c_ <= 0xffffffff) {
 			if (cdm.c_ > 1) {
 				modName[mode] = "mul+shr";
-				umull(x, wx, w9);
-				lsr(x, x, cdm.a_);
-				x_sub_qd(wx);
+				umull(x10, wx, w9);
+				lsr(x10, x10, cdm.a_);
+				x_sub_qd(x, x10, cdm.d_, x9);
 			} else {
 				modName[mode] = "shr";
 				and_imm(wx, wx, uint32_t(d_-1), w9);
@@ -624,24 +651,24 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			{
 				align(32);
 				*funcPtr = getCurr<FuncType>();
-				(this->*f)(cdm, bestMode, w0);
+				(this->*f)(cdm, bestMode, x0);
 				ret();
 			}
 			for (uint32_t mode = 0; mode < N; mode++) {
 				align(32);
 				lpTbl[mode] = getCurr<FuncType>();
 				const auto n = w0;
-				const auto sum = w1;
-				const auto i = w2;
-				const auto x = w3;
-				const auto t = w4;
+				const auto sum = x1;
+				const auto i = x2;
+				const auto x = x3;
+				const auto t = x4;
 				mov(sum, 0);
 				mov(i, 0);
 				Label lpL;
 				L(lpL);
 				mov(x, i);
 				for (uint32_t j = 0; j < lpN; j++) {
-					mov(t, x);
+					mov(cvt32(t), cvt32(x));
 					(this->*f)(cdm, mode, t);
 					add(sum, sum, t);
 					add(x, x, sum);
@@ -649,7 +676,7 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 				add(i, i, 1);
 				subs(n, n, 1);
 				bne(lpL);
-				mov(w0, sum);
+				mov(x0, sum);
 				ret();
 			}
 		}
