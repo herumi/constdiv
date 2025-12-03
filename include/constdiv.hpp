@@ -317,7 +317,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			break;
 		case 6:
 			lea(x, ptr[x+x*2]);
-			shl(x, 2);
+			add(x, x);
 			break;
 		case 7:
 			mov(t.cvt32(), x.cvt32());
@@ -326,6 +326,9 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			break;
 		case 8:
 			shl(x, 3);
+			break;
+		case 9:
+			lea(x, ptr[x+x*8]);
 			break;
 		default:
 			if (d < 0x80000000) {
