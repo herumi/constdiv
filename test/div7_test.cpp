@@ -101,7 +101,7 @@ void loopDiv(const ConstDivGen& cdg, uint32_t r0)
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
 	for (size_t i = 0; i < DIV_FUNC_N; i++) {
-		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
+		printf("rs[%zd]=0x%08x ok=0x%08x %s\n", i, rs[i], r0, rs[i] == r0 ? "ok" : "ng");
 	}
 }
 
@@ -116,7 +116,7 @@ void loopMod(const ConstDivGen& cdg, uint32_t r0)
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
 	for (size_t i = 0; i < MOD_FUNC_N; i++) {
-		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
+		printf("rs[%zd]=0x%08x ok=0x%08x %s\n", i, rs[i], r0, rs[i] == r0 ? "ok" : "ng");
 	}
 }
 

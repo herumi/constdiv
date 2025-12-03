@@ -641,18 +641,19 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 				lpTbl[mode] = getCurr<FuncType>();
 				const auto n = w0;
 				const auto sum = w1;
-				const auto x = w2;
-				const auto i = w3;
+				const auto i = w2;
+				const auto x = w3;
 				const auto t = w4;
 				mov(sum, 0);
 				mov(i, 0);
 				Label lpL;
 				L(lpL);
-				mov(t, x);
+				mov(x, i);
 				for (uint32_t j = 0; j < lpN; j++) {
+					mov(t, x);
 					(this->*f)(cdm, mode, t);
-					add(sum, sum, x);
-					add(t, t, sum);
+					add(sum, sum, t);
+					add(x, x, sum);
 				}
 				add(i, i, 1);
 				subs(n, n, 1);
