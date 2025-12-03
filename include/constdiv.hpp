@@ -217,7 +217,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 	FuncType modd = nullptr;
 	FuncType modLp[MOD_FUNC_N];
 	const char *modName[MOD_FUNC_N] = {};
-	static const int bestModMode = 0;
+	static const int bestModMode = 1;
 	ConstDivModGen()
 		: Xbyak::CodeGenerator(4096, Xbyak::DontSetProtectRWE)
 	{
