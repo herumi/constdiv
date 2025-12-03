@@ -577,7 +577,7 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 	void x_sub_qd(const Xbyak_aarch64::XReg& x, const Xbyak_aarch64::XReg& q, uint32_t d, const Xbyak_aarch64::XReg& t)
 	{
 		fast_muli(q, d, t); // t = x * d
-		sub(x, x, t);
+		sub(x, x, q);
 	}
 	// input x
 	// output x = x % d
