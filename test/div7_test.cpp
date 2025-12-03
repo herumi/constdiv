@@ -33,8 +33,10 @@ uint32_t loop1(FuncType f)
 {
 	uint32_t sum = 0;
 	for (uint32_t x = 0; x < g_N; x++) {
+		uint32_t t = x;
 		for (uint32_t i = 0; i < LP_N; i++) {
-			sum += f(x);
+			sum += f(t);
+			t += sum;
 		}
 	}
 	return sum;
@@ -99,7 +101,7 @@ void loopDiv(const ConstDivGen& cdg, uint32_t r0)
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
 	for (size_t i = 0; i < DIV_FUNC_N; i++) {
-		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
+		printf("rs[%zd]=0x%08x ok=0x%08x %s\n", i, rs[i], r0, rs[i] == r0 ? "ok" : "ng");
 	}
 }
 
@@ -114,7 +116,24 @@ void loopMod(const ConstDivGen& cdg, uint32_t r0)
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
 	for (size_t i = 0; i < MOD_FUNC_N; i++) {
-		printf("rs[%zd]=0x%08x %s\n", i, rs[i], rs[i] == r0 ? "ok" : "ng");
+		printf("rs[%zd]=0x%08x ok=0x%08x %s\n", i, rs[i], r0, rs[i] == r0 ? "ok" : "ng");
+	}
+}
+
+void checkone(const ConstDivGen& cdg, uint32_t x)
+{
+	uint32_t d = cdg.d_;
+	uint32_t q = x / d;
+	uint32_t r = x % d;
+	uint32_t a =cdg.divd(x);
+	uint32_t b =cdg.modd(x);
+	if (q != a) {
+		printf("ERR q x=%u expected %u bad %u\n", x, q, a);
+		exit(1);
+	}
+	if (r != b) {
+		printf("ERR r x=%u expected %u bad %u\n", x, r, b);
+		exit(1);
 	}
 }
 
@@ -125,14 +144,7 @@ void checkd(uint32_t d) {
 #pragma omp parallel for
 	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
 		uint32_t x = uint32_t(x_);
-		uint32_t q = x / d;
-		uint32_t r = x % d;
-		uint32_t a =cdg.divd(x);
-		uint32_t b =cdg.modd(x);
-		if (q != a || r != b) {
-			printf("ERR x=%u expected (%u %u) bad (%u %u)\n", x, q, r, a, b);
-			exit(1);
-		}
+		checkone(cdg, x);
 	}
 	puts("ok");
 }
@@ -289,10 +301,11 @@ int main(int argc, char *argv[])
 	}
 	cdg.put();
 	cdg.dump();
+	checkd(d);
+	puts("checkd ok");
 	loopDiv(cdg, divOk);
 	loopMod(cdg, modOk);
 
-	checkd(d);
 #endif
 } catch (std::exception& e) {
 	printf("err e=%s\n", e.what());
