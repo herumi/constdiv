@@ -120,6 +120,19 @@ void loopMod(const ConstDivGen& cdg, uint32_t r0)
 	}
 }
 
+void checkone(const ConstDivGen& cdg, uint32_t x)
+{
+	uint32_t d = cdg.d_;
+	uint32_t q = x / d;
+	uint32_t r = x % d;
+	uint32_t a =cdg.divd(x);
+	uint32_t b =cdg.modd(x);
+	if (q != a || r != b) {
+		printf("ERR x=%u expected (%u %u) bad (%u %u)\n", x, q, r, a, b);
+		exit(1);
+	}
+}
+
 void checkd(uint32_t d) {
 	printf("test %u for all x\n", d);
 	ConstDivGen cdg;
@@ -127,14 +140,7 @@ void checkd(uint32_t d) {
 #pragma omp parallel for
 	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
 		uint32_t x = uint32_t(x_);
-		uint32_t q = x / d;
-		uint32_t r = x % d;
-		uint32_t a =cdg.divd(x);
-		uint32_t b =cdg.modd(x);
-		if (q != a || r != b) {
-			printf("ERR x=%u expected (%u %u) bad (%u %u)\n", x, q, r, a, b);
-			exit(1);
-		}
+		checkone(cdg, x);
 	}
 	puts("ok");
 }
@@ -291,10 +297,11 @@ int main(int argc, char *argv[])
 	}
 	cdg.put();
 	cdg.dump();
+	checkd(d);
+	puts("checkd ok");
 	loopDiv(cdg, divOk);
 	loopMod(cdg, modOk);
 
-	checkd(d);
 #endif
 } catch (std::exception& e) {
 	printf("err e=%s\n", e.what());
