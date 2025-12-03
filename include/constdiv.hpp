@@ -621,9 +621,10 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 	{
 		using namespace Xbyak_aarch64;
 		const auto wx = cvt32(x);
-		if (d_ >= 0x80000000) {
+		const uint32_t d = uint32_t(d_);
+		if (d >= 0x80000000) {
 			modName[mode] = "cmp";
-			mov_imm(w9, uint32_t(d_));
+			mov_imm(w9, d);
 			cmp(x, x9);
 			csel(x10, xzr, x9, LT); // x10 = LT(cmp(x, x9)) ? 0 : x9
 			sub(x, x, x10);
@@ -640,7 +641,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 				x_sub_qd(x, x10, cdm.d_, x9);
 			} else {
 				modName[mode] = "shr";
-				and_imm(wx, wx, uint32_t(d_-1), w9);
+				and_imm(wx, wx, d-1, w9);
 			}
 			return;
 		}
@@ -651,34 +652,37 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 			mul(x10, x9, x);
 			umulh(x9, x9, x); // [x9:x10] = c * x
 			extr(x10, x9, x10, cdm.a_); // x = [x9:x10] >> a_
-			x_sub_qd(x, x10, cdm.d_, x9);
+			x_sub_qd(x, x10, d, x9);
 			return;
 		case 1:
 			modName[1] = "my";
 			umull(x9, wx, w9); // x9 = [cH:cL] * x
 			add(x10, x, x9, LSR, 32); // x += x9 >> 32;
 			lsr(x10, x10, cdm.a_ - 32);
-			x_sub_qd(x, x10, cdm.d_, x9);
+			x_sub_qd(x, x10, d, x9);
 			return;
 		case 2:
 			modName[2] = "new";
-#if 1
 			mov(x10, x);
 			fast_muli(x10, uint32_t(cdm.c2_), x9);
-#else
-			mov_imm(w9, uint32_t(cdm.c2_));
-			umull(x10, wx, w9);
-#endif
 			lsr(x10, x10, cdm.a2_);
 #if 1
-			if (fast_muli(x10, uint32_t(cdm.d_), x9)) {
-				mov_imm(w9, uint32_t(cdm.d_));
-			}
+if (d == 3) { // same to msub
+	mov(x9, d);
+	sub(x, x, x10, LSL, 1); // x -= q * 2
+	sub(x, x, x10);
+} else {
+			// msub(a, b, c, d)
+			// a = d - b * c
+			mov(x9, d);
+			msub(x, x10, x9, x);
+}
 #else
-			mov_imm(w9, uint32_t(cdm.d_));
-			umull(x10, w10, w9);
-#endif
+			if (fast_muli(x10, d, x9)) {
+				mov_imm(w9, d);
+			}
 			sub(x, x, x10); // x - q * d
+#endif
 			add(x9, x, x9); // x - q * d + d
 			cmp(x, 0);
 			csel(x, x, x9, GE); // x = (x >= 0) ? x - q d : x - q d + d
