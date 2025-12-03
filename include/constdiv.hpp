@@ -499,7 +499,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 	FuncType modd = nullptr;
 	FuncType modLp[MOD_FUNC_N];
 	const char *modName[MOD_FUNC_N] = {};
-	static const int bestModMode = 0;
+	static const int bestModMode = 2;
 
 	// input x
 	// output x = x/d
@@ -555,8 +555,10 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 	}
 
 	// x *= y, using t
-	void fast_muli(const Xbyak_aarch64::XReg& x, uint32_t y, const Xbyak_aarch64::XReg& t)
+	// return true without umull
+	bool fast_muli(const Xbyak_aarch64::XReg& x, uint32_t y, const Xbyak_aarch64::XReg& t)
 	{
+		using namespace Xbyak_aarch64;
 		if (x.getIdx() == t.getIdx()) {
 			fprintf(stderr, "same regs are not allowed\n");
 			exit(1);
@@ -564,11 +566,44 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 		const auto wx = cvt32(x);
 		const auto wt = cvt32(t);
 		switch (y) {
+		case 1:
+			break;
+		case 2:
+			lsl(x, x, 1);
+			break;
+		case 3:
+			add(x, x, x, LSL, 1);
+			break;
+		case 4:
+			lsl(x, x, 2);
+			break;
+		case 5:
+			add(x, x, x, LSL, 2);
+			break;
+		case 6:
+			add(x, x, x, LSL, 1);
+			lsl(x, x, 1);
+			break;
+		case 7:
+			lsl(t, x, 3);
+			sub(x, t, x);
+			break;
+		case 8:
+			lsl(x, x, 3);
+			break;
+		case 9:
+			add(x, x, x, LSL, 3);
+			break;
+		case 10:
+			add(x, x, x, LSL, 2);
+			lsl(x, x, 1);
+			break;
 		default:
 			mov_imm(wt, y);
 			umull(x, wx, wt);
-			break;
+			return false;
 		}
+		return true;
 	}
 
 	// input:  x, q
@@ -627,15 +662,26 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 			return;
 		case 2:
 			modName[2] = "new";
+#if 1
+			mov(x10, x);
+			fast_muli(x10, uint32_t(cdm.c2_), x9);
+#else
 			mov_imm(w9, uint32_t(cdm.c2_));
 			umull(x10, wx, w9);
+#endif
 			lsr(x10, x10, cdm.a2_);
+#if 1
+			if (fast_muli(x10, uint32_t(cdm.d_), x9)) {
+				mov_imm(w9, uint32_t(cdm.d_));
+			}
+#else
 			mov_imm(w9, uint32_t(cdm.d_));
 			umull(x10, w10, w9);
+#endif
 			sub(x, x, x10); // x - q * d
 			add(x9, x, x9); // x - q * d + d
 			cmp(x, 0);
-			csel(x, x, x9, GT); // x = (x >= 0) ? x - q d : x - q d + d
+			csel(x, x, x9, GE); // x = (x >= 0) ? x - q d : x - q d + d
 			return;
 		default:
 			modName[3] = "clang";
