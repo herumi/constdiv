@@ -499,7 +499,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 	FuncType modd = nullptr;
 	FuncType modLp[MOD_FUNC_N];
 	const char *modName[MOD_FUNC_N] = {};
-	static const int bestModMode = 2;
+	static const int bestModMode = 0;
 
 	// input x
 	// output x = x/d
