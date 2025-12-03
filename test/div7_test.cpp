@@ -59,45 +59,51 @@ uint32_t modorg(uint32_t x)
 
 uint32_t loopDivOrg(uint32_t d)
 {
+	puts("loopDivOrg");
 	uint32_t r0 = 0, r1 = 0;
+	const int D = 10;
 	if (d == 7) {
-		CYBOZU_BENCH_C("org ", C, r0 += loop1, div7org);
-		CYBOZU_BENCH_C("org2", C, r1 += loop1, div7org2);
+		CYBOZU_BENCH_C("org ", C/D, r0 += loop1, div7org);
+		CYBOZU_BENCH_C("org2", C/D, r1 += loop1, div7org2);
 		if (r0 != r1) {
 			printf("ERR org2 =0x%08x\n", r1);
 		}
 	} else {
-		CYBOZU_BENCH_C("org ", C, r0 += loop1, divdorg);
+		CYBOZU_BENCH_C("org ", C/D, r0 += loop1, divdorg);
 	}
+	r0 *= D;
 	printf("org  =0x%08x\n", r0);
 	return r0;
 }
 
 uint32_t loopModOrg(uint32_t d)
 {
+	puts("loopModOrg");
 	uint32_t r0 = 0, r1 = 0;
+	const int D = 10;
 	if (d == 7) {
-		CYBOZU_BENCH_C("org ", C, r0 += loop1, mod7org);
-		CYBOZU_BENCH_C("org2", C, r1 += loop1, mod7org2);
+		CYBOZU_BENCH_C("org ", C/D, r0 += loop1, mod7org);
+		CYBOZU_BENCH_C("org2", C/D, r1 += loop1, mod7org2);
 		if (r0 != r1) {
 			printf("ERR org2 =0x%08x\n", r1);
 		}
 	} else {
-		CYBOZU_BENCH_C("org ", C, r0 += loop1, modorg);
+		CYBOZU_BENCH_C("org ", C/D, r0 += loop1, modorg);
 	}
+	r0 *= D;
 	printf("org  =0x%08x\n", r0);
 	return r0;
 }
 
 #ifdef CONST_DIV_GEN
-void loopDiv(const ConstDivGen& cdg, uint32_t r0)
+void loopDiv(const ConstDivModGen& cdmg, uint32_t r0)
 {
 	puts("loopDiv");
 	uint32_t rs[DIV_FUNC_N] = {};
 	for (size_t i = 0; i < DIV_FUNC_N; i++) {
-		FuncType f = cdg.divLp[i];
+		FuncType f = cdmg.divLp[i];
 		char buf[64];
-		snprintf(buf, sizeof(buf), "%10s", cdg.divName[i]);
+		snprintf(buf, sizeof(buf), "%10s", cdmg.divName[i]);
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
 	for (size_t i = 0; i < DIV_FUNC_N; i++) {
@@ -105,14 +111,14 @@ void loopDiv(const ConstDivGen& cdg, uint32_t r0)
 	}
 }
 
-void loopMod(const ConstDivGen& cdg, uint32_t r0)
+void loopMod(const ConstDivModGen& cdmg, uint32_t r0)
 {
 	puts("loopMod");
 	uint32_t rs[MOD_FUNC_N] = {};
 	for (size_t i = 0; i < MOD_FUNC_N; i++) {
-		FuncType f = cdg.modLp[i];
+		FuncType f = cdmg.modLp[i];
 		char buf[64];
-		snprintf(buf, sizeof(buf), "%10s", cdg.modName[i]);
+		snprintf(buf, sizeof(buf), "%10s", cdmg.modName[i]);
 		CYBOZU_BENCH_C(buf, C, rs[i] += f, g_N);
 	}
 	for (size_t i = 0; i < MOD_FUNC_N; i++) {
@@ -120,13 +126,14 @@ void loopMod(const ConstDivGen& cdg, uint32_t r0)
 	}
 }
 
-void checkone(const ConstDivGen& cdg, uint32_t x)
+template<class DM>
+void checkone(const DM& dm, uint32_t x)
 {
-	uint32_t d = cdg.d_;
+	uint32_t d = dm.d_;
 	uint32_t q = x / d;
 	uint32_t r = x % d;
-	uint32_t a =cdg.divd(x);
-	uint32_t b =cdg.modd(x);
+	uint32_t a = dm.divd(x);
+	uint32_t b = dm.modd(x);
 	if (q != a) {
 		printf("ERR q x=%u expected %u bad %u\n", x, q, a);
 		exit(1);
@@ -137,43 +144,53 @@ void checkone(const ConstDivGen& cdg, uint32_t x)
 	}
 }
 
-void checkd(uint32_t d) {
-	printf("test %u for all x\n", d);
-	ConstDivGen cdg;
-	cdg.init(d);
-#pragma omp parallel for
-	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
-		uint32_t x = uint32_t(x_);
-		checkone(cdg, x);
+template<class DM>
+void checkd(uint32_t d, bool allx) {
+	DM dm;
+	if (!dm.init(d)) {
+		printf("ERR dm.init d=%u\n", d);
+		exit(1);
 	}
-	puts("ok");
+	dm.put();
+	if (allx) {
+#pragma omp parallel for
+		for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
+			uint32_t x = uint32_t(x_);
+			checkone(dm, x);
+		}
+		return;
+	}
+	const uint32_t xTbl[] = {
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 17, 19,
+		32, 64, 128, 256, 512, 641, 10287,
+		65535, 65536, 65537,
+		(1u<<20) - 1, (1u<<20), (1u<<20) + 1,
+		(1u<<30) - 1, (1u<<30), (1u<<30) + 1,
+		(1u<<31) - 1, (1u<<31), (1u<<31) + 1,
+		uint32_t(-3), uint32_t(-2), uint32_t(-1),
+	};
+	dm.put();
+	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(xTbl); i++) {
+		uint32_t x = xTbl[i];
+		checkone(dm, x);
+	}
 }
 #endif
 
-void checkmod(uint32_t d, bool allx = true) {
-	ConstDivMod cdm;
-	cdm.init(d);
-	// skip x for 32bit c
-#if 1
-	if (cdm.c_ <= 0xffffffff) {
-//		printf("skip d=0x%08x cdm.c_=0x%09" PRIx64 "\n", d, cdm.c_);
+// use d if !alld
+template<class DM>
+void checkall(uint32_t d, bool alld, bool allx)
+{
+	if (alld) {
+		printf("checkall alld\n");
+#pragma omp parallel for
+		for (int d = 1; d <= 0x7fffffff; d++) {
+			checkd<DM>(d, allx);
+		}
 		return;
 	}
-#endif
-	if (!allx) return;
-	cdm.put();
-#pragma omp parallel for
-	for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
-		uint32_t x = uint32_t(x_);
-		uint32_t o = x % cdm.d_;
-		uint32_t a = cdm.modd(x);
-		if (o != a) {
-			cdm.put();
-			printf("ERR d=%u x=%u o=%u a=%u\n", d, x, o, a);
-			exit(1);
-		}
-	}
-	puts("ok");
+	printf("checkall d=%u\n", d);
+	checkd<DM>(d, allx);
 }
 
 CYBOZU_TEST_AUTO(log)
@@ -192,22 +209,24 @@ int main(int argc, char *argv[])
 	bool alld;
 	bool unitTest;
 	bool benchOnly;
-	bool mod;
 	bool find33bit;
+	bool count33bit;
 	bool allx;
+	bool testc;
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
 #ifdef CONST_DIV_GEN
 	int divMode;
-	opt.appendOpt(&divMode, ConstDivGen::bestDivMode, "divmode", "div mode");
+	opt.appendOpt(&divMode, ConstDivModGen::bestDivMode, "divmode", "div mode");
 #endif
 	opt.appendBoolOpt(&alld, "alld", "check all d");
 	opt.appendBoolOpt(&unitTest, "ut", "unit test only");
 	opt.appendBoolOpt(&benchOnly, "bench", "benchmark only");
-	opt.appendBoolOpt(&mod, "mod", "mod");
 	opt.appendBoolOpt(&find33bit, "f33", "find 33bit c");
+	opt.appendBoolOpt(&count33bit, "c33", "count 33bit c");
 	opt.appendBoolOpt(&allx, "allx", "test all x");
+	opt.appendBoolOpt(&testc, "ctest", "test C");
 	opt.appendHelp("h");
 	if (opt.parse(argc, argv)) {
 		opt.put();
@@ -230,23 +249,8 @@ int main(int argc, char *argv[])
 		}
 		return 0;
 	}
-	if (mod) {
-		if (alld) {
-			puts("mod check alld");
-#pragma omp parallel for
-			for (int d = 1; d <= 0x7fffffff; d++) {
-				checkmod(d, allx);
-			}
-		} else {
-			puts("mod check d");
-			checkmod(d, allx);
-		}
-		return 0;
-	}
-	if (alld) {
-#if defined(COUNT_33BIT)
+	if (count33bit) {
 		std::atomic<uint32_t> count{0};
-#endif
 		puts("check alld");
 #pragma omp parallel for
 		for (int d = 1; d <= 0x7fffffff; d++) {
@@ -254,37 +258,26 @@ int main(int argc, char *argv[])
 			if (!cdm.init(d)) {
 				printf("err d=%d\n", d); exit(1);
 			}
-#ifdef COUNT_33BIT
 			if (cdm.c_ > 0xffffffff) {
 				count++;
 			}
-#endif
 		}
-#if defined(COUNT_33BIT)
 		printf("count=%u (%.2f)\n", count.load(), count.load() / double(0x7fffffff - 1));
-#endif
-		puts("ok");
-#ifdef CONST_DIV_GEN
-		const uint32_t tbl[] = {
-			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 17, 19,
-			32, 64, 128, 256, 512, 641, 10287,
-			65535, 65536, 65537,
-			(1u<<20) - 1, (1u<<20), (1u<<20) + 1,
-			(1u<<30) - 1, (1u<<30), (1u<<30) + 1,
-			(1u<<31) - 1, (1u<<31), (1u<<31) + 1,
-			uint32_t(-3), uint32_t(-2), uint32_t(-1),
-		};
-		for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(tbl); i++) {
-			checkd(tbl[i]);
-		}
-#endif
 		return 0;
+	}
+	if (testc) {
+		puts("checkall ConstDivMod");
+		checkall<ConstDivMod>(d, alld, allx);
+		return 0;
+	} else {
+		puts("checkall ConstDivModGen");
+		checkall<ConstDivModGen>(d, alld, allx);
 	}
 
 #ifdef CONST_DIV_GEN
-	ConstDivGen cdg;
-	if (!cdg.init(d, LP_N)) {
-		printf("err cdg d=%u\n", d);
+	ConstDivModGen cdmg;
+	if (!cdmg.init(d, LP_N)) {
+		printf("err cdmg d=%u\n", d);
 		return 1;
 	}
 #endif
@@ -296,15 +289,14 @@ int main(int argc, char *argv[])
 	}
 #ifdef CONST_DIV_GEN
 	if (benchOnly) {
-		CYBOZU_BENCH_C("bench", C, cdg.divLp[divMode], g_N);
+		CYBOZU_BENCH_C("bench", C, cdmg.divLp[divMode], g_N);
 		return 0;
 	}
-	cdg.put();
-	cdg.dump();
-	checkd(d);
-	puts("checkd ok");
-	loopDiv(cdg, divOk);
-	loopMod(cdg, modOk);
+	cdmg.put();
+	cdmg.dump();
+	puts("benchmark");
+	loopDiv(cdmg, divOk);
+	loopMod(cdmg, modOk);
 
 #endif
 } catch (std::exception& e) {
