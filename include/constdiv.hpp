@@ -613,15 +613,17 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 		case 0:
 			modName[0] = "my";
 			umull(x9, wx, w9); // x9 = [cH:cL] * x
-			add(x, x, x9, LSR, 32); // x += x9 >> 32;
-			lsr(x, x, cdm.a_ - 32);
+			add(x10, x, x9, LSR, 32); // x += x9 >> 32;
+			lsr(x10, x10, cdm.a_ - 32);
+			x_sub_qd(x, x10, cdm.d_, x9);
 			return;
 		case 1:
 			modName[1] = "mul64";
 			movk(x9, 1, 32); // x9 = c = [1:cH:cL]
 			mul(x10, x9, x);
 			umulh(x9, x9, x); // [x9:x10] = c * x
-			extr(x, x9, x10, cdm.a_); // x = [x9:x10] >> a_
+			extr(x10, x9, x10, cdm.a_); // x = [x9:x10] >> a_
+			x_sub_qd(x, x10, cdm.d_, x9);
 			return;
 		default:
 			modName[2] = "clang";
@@ -630,7 +632,8 @@ struct ConstDivGen : Xbyak_aarch64::CodeGenerator {
 			lsr(x9, x9, 32);
 			sub(w10, wx, w9);
 			add(w9, w9, w10, LSR, 1);
-			lsr(wx, w9, cdm.a_ - 33);
+			lsr(w10, w9, cdm.a_ - 33);
+			x_sub_qd(x, x10, cdm.d_, x9);
 			return;
 		}
 	}

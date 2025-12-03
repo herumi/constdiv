@@ -131,12 +131,10 @@ void checkone(const ConstDivGen& cdg, uint32_t x)
 		printf("ERR q x=%u expected %u bad %u\n", x, q, a);
 		exit(1);
 	}
-#if 0
 	if (r != b) {
 		printf("ERR r x=%u expected %u bad %u\n", x, r, b);
 		exit(1);
 	}
-#endif
 }
 
 void checkd(uint32_t d) {
