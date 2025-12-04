@@ -150,16 +150,28 @@ def test2(d, M, a, c, a2, c2):
     if r != r3:
       print(f'ERR3 {x=} {r=} {r3=}')
 #      raise Exception(f'ERR3 {x=} {r=} {r3=}')
-    if d != 7681:
-      continue
-    r4 = smod(x)
-    if r-r4 not in [2044, -5637]:
-      print(f'{x=} {r=} {r4=} {(r-r4)=}')
+    if d == 3329:
+      r4 = mod3329(x)
+      if r != r4:
+        raise Exception(f'ERR4 {x=} {r=} {r4=}')
+    if d == 7681:
+      r4 = smod(x)
+      if r-r4 not in [2044, -5637]:
+        print(f'{x=} {r=} {r4=} {(r-r4)=}')
   print('ok')
 
 def testall(d, M):
   (a, c, a2, c2) = findMod2(d, M)
   test2(d, M, a, c, a2, c2)
+
+def mod3329(x):
+  assert(0 <= x <= 65535)
+  q = 3329
+  t = (x * 5) >> 14
+  t = x - t * q
+  if t < 0:
+    t += q
+  return t
 
 
 d = 2**13-2**9+1
