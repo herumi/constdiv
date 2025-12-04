@@ -99,11 +99,75 @@ def testMod(d, M=2**32-1, slist=[]):
     checkMod(x, d, asc)
   print('OK')
 
-testMod(123)
-testMod(12345)
-testMod(0xffff)
-testMod(0xfffffff)
+def findMod2(d, M):
+  (q0, r0) = divmod(M, d)
+  M_d = r0 if r0 == d-1 else M - r0 - 1
+  Mbit = M.bit_length()
+  for a in range(128):
+    A = 1 << a
+    c = (A + d - 1) // d
+    e = c * d - A
+    if e * M_d >= A:
+      continue
+    print(f'found {d=} {a=} {c=}')
+    for a2 in range(128):
+      A2 = 1 << a2
+      c2 = (A2 + d - 1) // d
+      e2 = c2 * d - A2
+      if e2 * M_d < (d+1) * A2 and e2 * M < (2 * d - r0) * A2:
+        if c2.bit_length() >= Mbit:
+          continue
+        print(f'found {d=} {a=} {c=} {a2=} {c2=}')
+        return (a, c, a2, c2)
+
+def mod2(x, d, a, c):
+  q = (x * c) >> a
+  return x - q * d
+
+def mod3(x, d, a2, c2):
+  q = (x * c2) >> a2
+  x -= q * d
+  if x < 0:
+    x += d
+  return x
+
+def smod(a):
+  a -= 32768
+  t = a >> 13
+  u = a & (2**13-1)
+  u = u - t
+  t = t * 2**9
+  r = u + t
+  return r
+
+def test2(d, M, a, c, a2, c2):
+  for x in range(M+1):
+    r = x % d
+    r2 = mod2(x, d, a, c)
+    r3 = mod3(x, d, a2, c2)
+    if r != r2:
+      raise Exception(f'ERR2 {x=} {r=} {r2=}')
+    if r != r3:
+      print(f'ERR3 {x=} {r=} {r3=}')
+#      raise Exception(f'ERR3 {x=} {r=} {r3=}')
+    if d != 7681:
+      continue
+    r4 = smod(x)
+    if r-r4 not in [2044, -5637]:
+      print(f'{x=} {r=} {r4=} {(r-r4)=}')
+  print('ok')
+
+def testall(d, M):
+  (a, c, a2, c2) = findMod2(d, M)
+  test2(d, M, a, c, a2, c2)
+
+
+d = 2**13-2**9+1
+M=65535
+testall(d, M)
+d = 3329
+testall(d, M)
+
+#testMod(12345)
+#testMod(123)
 #testMod(2**30-1)
-#testMod(3329,65537)
-#testMod(7, 2**32-1)
-#testMod(L, p-1)
