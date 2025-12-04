@@ -669,7 +669,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 			mov(x10, x);
 			fast_muli(x10, uint32_t(cdm.c2_), x9);
 			lsr(x10, x10, cdm.a2_);
-#if 1
+#if 0
 if (d == 3) { // same to msub
 	mov(x9, d);
 	sub(x, x, x10, LSL, 1); // x -= q * 2
