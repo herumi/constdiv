@@ -354,6 +354,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 	// use rax, rdx
 	void modRaw(const ConstDivMod& cdm, uint32_t mode, const Xbyak::Reg32& x)
 	{
+		const auto xq = x.cvt64();
 		if (d_ >= 0x80000000) {
 			modName[mode] = "cmp";
 			mov(eax, x);
@@ -382,9 +383,9 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 		case 0:
 			modName[0] = "my1";
 			mov(eax, cdm.c_ & 0xffffffff);
-			imul(rax, x.cvt64());
+			imul(rax, xq);
 			shr(rax, 32);
-			add(rax, x.cvt64());
+			add(rax, xq);
 			shr(rax, cdm.a_ - 32);
 
 			x_sub_qd(x);
@@ -392,14 +393,25 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 
 		case 1:
 			modName[1] = "my2";
-			mov(edx, x);
-			fast_muli(rdx, cdm.c2_ & 0xffffffff, rax);
-			shr(rdx, cdm.a2_);
-			fast_muli(rdx, d_, rax);
+#if 1
 			mov(eax, x);
-			sub(rax, rdx);
+			fast_muli(xq, cdm.c2_ & 0xffffffff, rdx);
+			shr(xq, cdm.a2_);
+			fast_muli(xq, d_, rdx);
+			sub(rax, xq);
 			lea(edx, ptr[eax + d_]);
 			cmovc(eax, edx);
+#else
+			// slow
+			mov(eax, x);
+			fast_muli(xq, cdm.c2_ & 0xffffffff, rdx);
+			shr(xq, cdm.a2_);
+			fast_muli(xq, d_, rdx);
+			sub(rax, xq);
+			sbb(edx, edx);
+			and_(edx, d_);
+			add(eax, edx);
+#endif
 			break;
 
 		case MOD_FUNC_N-1:
@@ -445,25 +457,27 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			for (uint32_t mode = 0; mode < N; mode++) {
 				align(32);
 				lpTbl[mode] = getCurr<FuncType>();
-				StackFrame sf(this, 1, 3|UseRDX);
+				StackFrame sf(this, 1, 4|UseRDX);
 				const Reg32 n = sf.p[0].cvt32();
 				const Reg32 sum = sf.t[0].cvt32();
 				const Reg32 x = sf.t[1].cvt32();
 				const Reg32 t = sf.t[2].cvt32();
+				const Reg32 i = sf.t[3].cvt32();
 				xor_(sum, sum);
-				xor_(x, x);
+				xor_(i, i);
 				align(32);
 				Label lpL;
 				L(lpL);
-				mov(t, x);
+				mov(x, i);
 				for (uint32_t j = 0; j < lpN; j++) {
+					mov(t, x);
 					(this->*f)(cdm, mode, t);
 					add(sum, eax);
-					add(t, sum);
+					add(x, sum);
 				}
-				add(x, 1);
-				dec(n);
-				jnz(lpL);
+				add(i, 1);
+				cmp(i, n);
+				jb(lpL);
 				mov(eax, sum);
 			}
 		}
