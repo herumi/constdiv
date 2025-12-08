@@ -47,5 +47,4 @@ int main()
 	inspect(0xffff, 31, 2);
 #endif
 	inspect(0xfffffff, 55, 27);
-//	inspect((1<<30)-1,59,29);
 }
