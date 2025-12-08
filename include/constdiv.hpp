@@ -203,7 +203,7 @@ typedef uint32_t (*FuncType)(uint32_t);
 
 #ifdef CONST_DIV_GEN_X64
 
-static const size_t DIV_FUNC_N = 2;
+static const size_t DIV_FUNC_N = 3;
 static const size_t MOD_FUNC_N = 3;
 
 struct ConstDivModGen : Xbyak::CodeGenerator {
@@ -234,18 +234,39 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			return;
 		}
 		if (cdm.c_ <= 0xffffffff) {
-			mov(eax, x);
 			if (cdm.c_ > 1) {
 				divName[mode] = "mul+shr";
+#if 0
+				mov(rdx, cdm.c_ << (64 - cdm.a_));
+				mulx(rax, rdx, x.cvt64());
+#else
+				mov(eax, x);
 				mov(edx, cdm.c_);
 				mul(rdx);
+				shr(rax, cdm.a_);
+#endif
 			} else {
 				divName[mode] = "shr";
+				mov(eax, x);
+				shr(rax, cdm.a_);
 			}
-			shr(rax, cdm.a_);
 			return;
 		}
-		if (mode == DIV_FUNC_N-1) {
+		switch (mode) {
+		case 0:
+			divName[0] = "mul64";
+			mov(rdx, cdm.c_ << (64 - cdm.a_));
+			mulx(rax, rdx, x.cvt64());
+			return;
+		case 1:
+			divName[1] = "mul32";
+			mov(eax, cdm.c_ & 0xffffffff);
+			imul(rax, x.cvt64());
+			shr(rax, 32);
+			add(rax, x.cvt64());
+			shr(rax, cdm.a_ - 32);
+			return;
+		default:
 			divName[DIV_FUNC_N-1] = "gcc";
 			// generated asm code by gcc/clang
 			mov(edx, x);
@@ -258,42 +279,6 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			shr(eax, cdm.a_ - 33);
 			return;
 		}
-		if (mode == bestDivMode) {
-			divName[bestDivMode] = "my";
-			mov(eax, cdm.c_ & 0xffffffff);
-			imul(rax, x.cvt64());
-			shr(rax, 32);
-			add(rax, x.cvt64());
-			shr(rax, cdm.a_ - 32);
-			return;
-		}
-#if 0
-		/*
-			mul and mulx are almost same
-			shrd is slow
-		*/
-		mov(eax, x);
-		mov(rdx, cdm.c_);
-		static const char *nameTbl[] = {
-			"mul/mixed",
-			"mulx/mixed",
-			"mul/shrd",
-			"mulx/shrd",
-		};
-		divName[mode] = nameTbl[mode];
-		if (mode & (1<<0)) {
-			mulx(rdx, rax, rax);
-		} else {
-			mul(rdx);
-		}
-		if (mode & (1<<1)) {
-			shrd(rax, rdx, uint8_t(cdm.a_));
-		} else {
-			shr(rax, cdm.a_);
-			shl(edx, 64 - cdm.a_);
-			or_(eax, edx);
-		}
-#endif
 	}
 	// input: x
 	// output: x = x * d
@@ -382,7 +367,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 		switch (mode) {
 		case 0:
 			modName[0] = "my1";
-#if 1
+#if 0
 			if (d_ == 95) {
 				mov(rax, 194176253407468965);
 				imul(xq, rax);
@@ -392,11 +377,16 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 				break;
 			}
 #endif
+#if 1
+			mov(rdx, cdm.c_ << (64 - cdm.a_));
+			mulx(rax, rdx, xq);
+#else
 			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, xq);
 			shr(rax, 32);
 			add(rax, xq);
 			shr(rax, cdm.a_ - 32);
+#endif
 
 			x_sub_qd(x);
 			break;
