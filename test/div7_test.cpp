@@ -8,6 +8,7 @@
 #include <cybozu/test.hpp>
 #include "constdiv.hpp"
 #include <math.h>
+#include <mutex>
 
 #include <atomic>
 //#define COUNT_33BIT
@@ -201,6 +202,37 @@ CYBOZU_TEST_AUTO(log)
 	}
 }
 
+void findSmallC()
+{
+	const size_t n = 16;
+	uint32_t dTbl1[n] = {}, dTbl2[n] = {};
+	uint32_t find1 = 0, find2 = 0;
+	std::mutex mut;
+#pragma omp parallel for
+	for (int d = 1; d <= 0x7fffffff; d++) {
+		ConstDivMod cdm;
+		cdm.init(d);
+		uint64_t c = cdm.c_;
+		std::lock_guard<std::mutex> g(mut);
+		if (c < n && ((find1 & (1<<c)) == 0)) {
+			find1 |= 1<<c;
+			dTbl1[c] = d;
+		}
+		c = cdm.c2_;
+		if (c < n && ((find2 & (1<<c)) == 0)) {
+			find2 |= 1<<c;
+			dTbl2[c] = d;
+		}
+	}
+	puts("d table");
+	for (size_t i = 0; i < n; i++) {
+		printf("d1[%zd]=%u\n", i, dTbl1[i]);
+	}
+	for (size_t i = 0; i < n; i++) {
+		printf("d2[%zd]=%u\n", i, dTbl2[i]);
+	}
+}
+
 int main(int argc, char *argv[])
 	try
 {
@@ -213,6 +245,7 @@ int main(int argc, char *argv[])
 	bool count33bit;
 	bool allx;
 	bool testc;
+	bool findc;
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
@@ -227,6 +260,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&count33bit, "c33", "count 33bit c");
 	opt.appendBoolOpt(&allx, "allx", "test all x");
 	opt.appendBoolOpt(&testc, "ctest", "test C");
+	opt.appendBoolOpt(&findc, "findc", "find small c");
 	opt.appendHelp("h");
 	if (opt.parse(argc, argv)) {
 		opt.put();
@@ -247,6 +281,10 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 		}
+		return 0;
+	}
+	if (findc) {
+		findSmallC();
 		return 0;
 	}
 	if (count33bit) {

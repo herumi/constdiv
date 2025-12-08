@@ -382,6 +382,16 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 		switch (mode) {
 		case 0:
 			modName[0] = "my1";
+#if 1
+			if (d_ == 95) {
+				mov(rax, 194176253407468965);
+				imul(xq, rax);
+				mov(eax, d_);
+				mul(xq);
+				mov(eax, edx);
+				break;
+			}
+#endif
 			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, xq);
 			shr(rax, 32);
