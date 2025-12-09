@@ -119,7 +119,7 @@ def findMod2(d, M):
         v = ((M*c2)>>a2)*d
         if v > M:
           continue
-        print(f'found {d=} {a=} {hex(c)=} {a2=} {hex(c2)=}')
+        print(f'found {hex(M)=} {d=} {a=} {hex(c)=} {a2=} {hex(c2)=}')
         return (a, c, a2, c2)
 
 def mod2(x, d, a, c):
@@ -196,7 +196,9 @@ M=65535
 testall(d, M)
 d = 3329
 testall(d, M)
+testall(8380417, 2**23)
 testall(8380417, 2**24)
+testall(8380417, 2**25)
 #testall(8380417, 0xffffffff)
 
 #testMod(12345)
