@@ -129,6 +129,8 @@ def mod2(x, d, a, c):
 def mod3(x, d, a2, c2):
   q = (x * c2) >> a2
   x -= q * d
+  if x == -d:
+    print(f'attach {x=}')
   if x < 0:
     x += d
   return x
