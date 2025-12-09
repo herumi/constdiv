@@ -119,7 +119,7 @@ def findMod2(d, M):
         v = ((M*c2)>>a2)*d
         if v > M:
           continue
-        print(f'found {d=} {a=} {c=} {a2=} {c2=}')
+        print(f'found {d=} {a=} {hex(c)=} {a2=} {hex(c2)=}')
         return (a, c, a2, c2)
 
 def mod2(x, d, a, c):
@@ -152,6 +152,10 @@ def test2(d, M, a, c, a2, c2):
     if r != r3:
       print(f'ERR3 {x=} {r=} {r3=}')
 #      raise Exception(f'ERR3 {x=} {r=} {r3=}')
+#    if d == 8380417:
+#      r4 = mod8380417(x)
+#      if r != r4:
+#        raise Exception(f'ERR5 {x=} {r=} {r4=}')
     if d == 3329:
       r4 = mod3329(x)
       if r != r4:
@@ -175,12 +179,25 @@ def mod3329(x):
     t += q
   return t
 
+def mod8380417(x):
+  assert(0 <= x <= 2**24)
+  q = 8380417
+  c = 5
+  a = 25
+  t = (x * c) >> a
+  t = x - t * q
+  if t < 0:
+    t += q
+  return t
+
 
 d = 2**13-2**9+1
 M=65535
 testall(d, M)
 d = 3329
 testall(d, M)
+testall(8380417, 2**24)
+#testall(8380417, 0xffffffff)
 
 #testMod(12345)
 #testMod(123)
