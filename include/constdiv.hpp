@@ -105,7 +105,7 @@ struct ConstDivMod {
 	{
 		std::print("DivMod d={}(0x{:08x}) a={} c=0x{:x} c32={} e=0x{:x} cmp={} over={}\n", d_, d_, a_, c_, (c_ >> 32) != 0, e_, cmp_, over_);
 		if (over_) {
-			uint64_t v = ((M_*c_)>>a_)*d_;
+			uint64_t v = ((M_*c2_)>>a2_)*d_;
 			std::print("mod a2={} c=0x{:x} tmp max={:x} tmp>M={}\n", a2_, c2_, v, v>M_);
 		}
 	}

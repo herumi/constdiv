@@ -117,7 +117,8 @@ def findMod2(d, M):
       if e2 * M_d < (d+1) * A2 and e2 * M < (2 * d - r0) * A2:
         if c2.bit_length() >= Mbit:
           continue
-        print(f'found {d=} {a=} {c=} {a2=} {c2=}')
+        v = ((M*c2)>>a2)*d
+        print(f'found {d=} {a=} {c=} {a2=} {c2=} tmp max={hex(v)} tmp>M={v>M}')
         return (a, c, a2, c2)
 
 def mod2(x, d, a, c):
