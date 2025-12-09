@@ -149,6 +149,10 @@ struct ConstDivMod {
 						if (c >> Mbit) {
 							continue;
 						}
+						uint64_t v = ((M*c2_)>>a2_)*d_;
+						if (v > M_) {
+							continue;
+						}
 						a2_ = a2;
 						c2_ = c;
 						return true;
@@ -448,7 +452,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 		d_ = d;
 		ConstDivMod cdm;
 		if (!cdm.init(d)) return false;
-		cdm.put();
+//		cdm.put();
 		a_ = cdm.a_;
 		for (int j = 0; j < 2; j++) {
 			auto f = j == 0 ? &ConstDivModGen::divRaw : &ConstDivModGen::modRaw;
@@ -752,7 +756,7 @@ if (d == 3) { // same to msub
 		using namespace Xbyak_aarch64;
 		ConstDivMod cdm;
 		if (!cdm.init(d)) return false;
-		cdm.put();
+//		cdm.put();
 		d_ = cdm.d_;
 		a_ = cdm.a_;
 		for (int j = 0; j < 2; j++) {

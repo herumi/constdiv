@@ -136,10 +136,12 @@ void checkone(const DM& dm, uint32_t x)
 	uint32_t a = dm.divd(x);
 	uint32_t b = dm.modd(x);
 	if (q != a) {
+		dm.put();
 		printf("ERR q x=%u expected %u bad %u\n", x, q, a);
 		exit(1);
 	}
 	if (r != b) {
+		dm.put();
 		printf("ERR r x=%u expected %u bad %u\n", x, r, b);
 		exit(1);
 	}
@@ -152,28 +154,26 @@ void checkd(uint32_t d, bool allx) {
 		printf("ERR dm.init d=%u\n", d);
 		exit(1);
 	}
-	dm.put();
 	if (allx) {
 #pragma omp parallel for
 		for (int64_t x_ = 0; x_ <= 0xffffffff; x_++) {
 			uint32_t x = uint32_t(x_);
 			checkone(dm, x);
 		}
-		return;
-	}
-	const uint32_t xTbl[] = {
-		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 17, 19,
-		32, 64, 128, 256, 512, 641, 10287,
-		65535, 65536, 65537,
-		(1u<<20) - 1, (1u<<20), (1u<<20) + 1,
-		(1u<<30) - 1, (1u<<30), (1u<<30) + 1,
-		(1u<<31) - 1, (1u<<31), (1u<<31) + 1,
-		uint32_t(-3), uint32_t(-2), uint32_t(-1),
-	};
-	dm.put();
-	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(xTbl); i++) {
-		uint32_t x = xTbl[i];
-		checkone(dm, x);
+	} else {
+		const uint32_t xTbl[] = {
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 17, 19,
+			32, 64, 128, 256, 512, 641, 10287,
+			65535, 65536, 65537,
+			(1u<<20) - 1, (1u<<20), (1u<<20) + 1,
+			(1u<<30) - 1, (1u<<30), (1u<<30) + 1,
+			(1u<<31) - 1, (1u<<31), (1u<<31) + 1,
+			uint32_t(-3), uint32_t(-2), uint32_t(-1),
+		};
+		for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(xTbl); i++) {
+			uint32_t x = xTbl[i];
+			checkone(dm, x);
+		}
 	}
 }
 #endif
@@ -188,10 +188,10 @@ void checkall(uint32_t d, bool alld, bool allx)
 		for (int d = 1; d <= 0x7fffffff; d++) {
 			checkd<DM>(d, allx);
 		}
-		return;
+	} else {
+		printf("checkall d=%u\n", d);
+		checkd<DM>(d, allx);
 	}
-	printf("checkall d=%u\n", d);
-	checkd<DM>(d, allx);
 }
 
 CYBOZU_TEST_AUTO(log)
@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&find33bit, "f33", "find 33bit c");
 	opt.appendBoolOpt(&count33bit, "c33", "count 33bit c");
 	opt.appendBoolOpt(&allx, "allx", "test all x");
-	opt.appendBoolOpt(&testc, "ctest", "test C");
+	opt.appendBoolOpt(&testc, "testc", "test C");
 	opt.appendBoolOpt(&findc, "findc", "find small c");
 	opt.appendBoolOpt(&range_a, "range_a", "range of a");
 	opt.appendHelp("h");
