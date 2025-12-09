@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
-//#define CYBOZU_BENCH_CHRONO
+#define CYBOZU_BENCH_CHRONO
 #include <cybozu/benchmark.hpp>
 #include <cybozu/option.hpp>
 #define CYBOZU_TEST_DISABLE_AUTO_RUN

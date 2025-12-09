@@ -372,7 +372,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 		}
 		switch (mode) {
 		case 0:
-			modName[0] = "my1";
+			modName[0] = "mul64";
 #if 0
 			if (d_ == 95) {
 				mov(rax, 194176253407468965);
@@ -398,7 +398,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			break;
 
 		case 1:
-			modName[1] = "my2";
+			modName[1] = "smallc";
 #if 1
 			mov(eax, x);
 			fast_muli(xq, cdm.c2_ & 0xffffffff, rdx);
@@ -422,7 +422,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 
 		case MOD_FUNC_N-1:
 		default:
-			modName[MOD_FUNC_N-1] = "gcc";
+			modName[MOD_FUNC_N-1] = "clang";
 			// generated asm code by gcc/clang
 			mov(edx, x);
 			mov(eax, cdm.c_ & 0xffffffff);
@@ -698,7 +698,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 #endif
 			return;
 		case 1:
-			modName[1] = "my";
+			modName[1] = "mul32";
 			mov_imm(w9, uint32_t(cdm.c_));
 			umull(x9, wx, w9); // x9 = [cH:cL] * x
 			add(x10, x, x9, LSR, 32); // x += x9 >> 32;
@@ -706,8 +706,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
 			x_sub_qd(x, x10, d, x9);
 			return;
 		case 2:
-			modName[2] = "new";
-			mov_imm(w9, uint32_t(cdm.c_));
+			modName[2] = "smallc";
 			mov(x10, x);
 			fast_muli(x10, uint32_t(cdm.c2_), x9);
 			lsr(x10, x10, cdm.a2_);
