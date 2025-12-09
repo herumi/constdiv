@@ -203,7 +203,7 @@ typedef uint32_t (*FuncType)(uint32_t);
 
 #ifdef CONST_DIV_GEN_X64
 
-static const size_t DIV_FUNC_N = 3;
+static const size_t DIV_FUNC_N = 4;
 static const size_t MOD_FUNC_N = 3;
 
 struct ConstDivModGen : Xbyak::CodeGenerator {
@@ -265,6 +265,12 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			shr(rax, 32);
 			add(rax, x.cvt64());
 			shr(rax, cdm.a_ - 32);
+			return;
+		case 2:
+			divName[2] = "mul64+shrd";
+			mov(rdx, cdm.c_);
+			mulx(rdx, rax, x.cvt64());
+			shrd(rax, rdx, cdm.a_);
 			return;
 		default:
 			divName[DIV_FUNC_N-1] = "gcc";
