@@ -91,6 +91,7 @@ static inline constexpr uint64_t mask(uint32_t n)
 }
 
 struct ConstDivMod {
+	uint32_t M_ = 0; // max x
 	uint32_t d_ = 0; // divisor
 	uint32_t r_M_ = 0; // M % d
 	uint32_t a_ = 0; // index of 2-power
@@ -104,12 +105,14 @@ struct ConstDivMod {
 	{
 		std::print("DivMod d={}(0x{:08x}) a={} c=0x{:x} c32={} e=0x{:x} cmp={} over={}\n", d_, d_, a_, c_, (c_ >> 32) != 0, e_, cmp_, over_);
 		if (over_) {
-			std::print("mod a2={} c=0x{:x}\n", a2_, c2_);
+			uint64_t v = ((M_*c_)>>a_)*d_;
+			std::print("mod a2={} c=0x{:x} tmp max={:x} tmp>M={}\n", a2_, c2_, v, v>M_);
 		}
 	}
 	bool init(uint32_t d, uint64_t M = 0xffffffff)
 	{
 		if (d == 0 || d > M) return false;
+		M_ = M;
 		d_ = d;
 		r_M_ = uint32_t(M % d);
 		const uint32_t M_d = (r_M_ == d-1) ? M : M - r_M_ - 1;
