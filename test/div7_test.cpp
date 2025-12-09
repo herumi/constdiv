@@ -331,6 +331,7 @@ int main(int argc, char *argv[])
 		opt.put();
 	} else {
 		opt.usage();
+		return 1;
 	}
 	if (unitTest) {
 		return cybozu::test::autoRun.run(argc, argv);
