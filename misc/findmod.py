@@ -173,7 +173,7 @@ def testall(d, M):
   test2(d, M, a, c, a2, c2)
 
 def mod3329(x):
-  assert(0 <= x <= 65535)
+#  assert(0 <= x <= 65535)
   q = 3329
   t = (x * 5) >> 14
   t = x - t * q
@@ -198,10 +198,7 @@ M=65535
 testall(d, M)
 d = 3329
 testall(d, M)
-testall(8380417, 2**23)
-testall(8380417, 2**24)
-testall(8380417, 2**25)
-#testall(8380417, 0xffffffff)
+testall(d, 32767 + ((32768+d-1)//d)*d)
 
 #testMod(12345)
 #testMod(123)

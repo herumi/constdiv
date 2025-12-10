@@ -211,7 +211,7 @@ typedef uint32_t (*FuncType)(uint32_t);
 #ifdef CONST_DIV_GEN_X64
 
 static const size_t DIV_FUNC_N = 4;
-static const size_t MOD_FUNC_N = 3;
+static const size_t MOD_FUNC_N = 4;
 
 struct ConstDivModGen : Xbyak::CodeGenerator {
 	FuncType divd = nullptr;
@@ -390,22 +390,24 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 				break;
 			}
 #endif
-#if 1
 			mov(rdx, cdm.c_ << (64 - cdm.a_));
 			mulx(rax, rdx, xq);
-#else
+			x_sub_qd(x);
+			break;
+
+		case 1:
+			modName[1] = "mul32";
 			mov(eax, cdm.c_ & 0xffffffff);
 			imul(rax, xq);
 			shr(rax, 32);
 			add(rax, xq);
 			shr(rax, cdm.a_ - 32);
-#endif
 
 			x_sub_qd(x);
 			break;
 
-		case 1:
-			modName[1] = "smallc";
+		case 2:
+			modName[2] = "smallc";
 #if 1
 			mov(eax, x);
 			fast_muli(xq, cdm.c2_ & 0xffffffff, rdx);
@@ -427,9 +429,8 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 #endif
 			break;
 
-		case MOD_FUNC_N-1:
 		default:
-			modName[MOD_FUNC_N-1] = "clang";
+			modName[3] = "clang";
 			// generated asm code by gcc/clang
 			mov(edx, x);
 			mov(eax, cdm.c_ & 0xffffffff);
