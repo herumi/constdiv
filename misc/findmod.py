@@ -109,7 +109,6 @@ def findMod2(d, M):
     e = c * d - A
     if e * M_d >= A:
       continue
-    print(f'found {d=} {a=} {c=}')
     for a2 in range(128):
       A2 = 1 << a2
       c2 = (A2 + d - 1) // d
@@ -117,7 +116,10 @@ def findMod2(d, M):
       if e2 * M_d < (d+1) * A2 and e2 * M < (2 * d - r0) * A2:
         if c2.bit_length() >= Mbit:
           continue
-        print(f'found {d=} {a=} {c=} {a2=} {c2=}')
+        v = ((M*c2)>>a2)*d
+        if v > M:
+          continue
+        print(f'found {hex(M)=} {d=} {a=} {hex(c)=} {a2=} {hex(c2)=}')
         return (a, c, a2, c2)
 
 def mod2(x, d, a, c):
@@ -127,6 +129,8 @@ def mod2(x, d, a, c):
 def mod3(x, d, a2, c2):
   q = (x * c2) >> a2
   x -= q * d
+  if x == -d:
+    print(f'attach {x=}')
   if x < 0:
     x += d
   return x
@@ -150,6 +154,10 @@ def test2(d, M, a, c, a2, c2):
     if r != r3:
       print(f'ERR3 {x=} {r=} {r3=}')
 #      raise Exception(f'ERR3 {x=} {r=} {r3=}')
+#    if d == 8380417:
+#      r4 = mod8380417(x)
+#      if r != r4:
+#        raise Exception(f'ERR5 {x=} {r=} {r4=}')
     if d == 3329:
       r4 = mod3329(x)
       if r != r4:
@@ -165,9 +173,20 @@ def testall(d, M):
   test2(d, M, a, c, a2, c2)
 
 def mod3329(x):
-  assert(0 <= x <= 65535)
+#  assert(0 <= x <= 65535)
   q = 3329
   t = (x * 5) >> 14
+  t = x - t * q
+  if t < 0:
+    t += q
+  return t
+
+def mod8380417(x):
+  assert(0 <= x <= 2**24)
+  q = 8380417
+  c = 5
+  a = 25
+  t = (x * c) >> a
   t = x - t * q
   if t < 0:
     t += q
@@ -179,6 +198,7 @@ M=65535
 testall(d, M)
 d = 3329
 testall(d, M)
+testall(d, 32767 + ((32768+d-1)//d)*d)
 
 #testMod(12345)
 #testMod(123)
