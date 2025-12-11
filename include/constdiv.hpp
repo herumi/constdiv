@@ -149,10 +149,12 @@ struct ConstDivMod {
 						if (c >> Mbit) {
 							continue;
 						}
+#if 1 // enable if v <= M_ is expected
 						uint64_t v = ((M*c2_)>>a2_)*d_;
 						if (v > M_) {
 							continue;
 						}
+#endif
 						a2_ = a2;
 						c2_ = c;
 						return true;
@@ -214,6 +216,7 @@ static const size_t DIV_FUNC_N = 4;
 static const size_t MOD_FUNC_N = 4;
 
 struct ConstDivModGen : Xbyak::CodeGenerator {
+	ConstDivMod cdm;
 	FuncType divd = nullptr;
 	FuncType divLp[DIV_FUNC_N] = {};
 	const char *divName[DIV_FUNC_N] = {};
@@ -451,7 +454,6 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 		using namespace Xbyak::util;
 
 		d_ = d;
-		ConstDivMod cdm;
 		if (!cdm.init(d)) return false;
 //		cdm.put();
 		a_ = cdm.a_;
@@ -505,7 +507,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 	}
 	void put() const
 	{
-		printf("Gen d=%u(0x%08x) a=%u divd=%p\n", d_, d_, a_, divd);
+		cdm.put();
 	}
 };
 
@@ -520,6 +522,7 @@ static inline Xbyak_aarch64::WReg cvt32(const Xbyak_aarch64::Reg& x)
 }
 
 struct ConstDivModGen : Xbyak_aarch64::CodeGenerator {
+	ConstDivMod cdm;
 	FuncType divd = nullptr;
 	FuncType divLp[DIV_FUNC_N] = {};
 	const char *divName[DIV_FUNC_N] = {};
@@ -755,7 +758,6 @@ if (d == 3) { // same to msub
 	bool init(uint32_t d, uint32_t lpN = 1)
 	{
 		using namespace Xbyak_aarch64;
-		ConstDivMod cdm;
 		if (!cdm.init(d)) return false;
 //		cdm.put();
 		d_ = cdm.d_;
@@ -808,7 +810,7 @@ if (d == 3) { // same to msub
 	}
 	void put() const
 	{
-		printf("Gen d=%u(0x%08x) a=%u divd=%p\n", d_, d_, a_, divd);
+		cdm.put();
 	}
 };
 
