@@ -3,7 +3,7 @@
 #include <print>
 #include <bit>
 
-#include "uint128_t.hpp"
+//#include "uint128_t.hpp"
 
 /*
 M: integer >= 1.
@@ -66,13 +66,16 @@ namespace constdiv {
 
 static const uint64_t one = 1;
 
+static inline bool is2power(uint32_t x)
+{
+	return (x & (x-1)) == 0;
+}
+
 static inline constexpr uint32_t ceil_ilog2(uint32_t x)
 {
 #if 1
 	uint32_t a = std::bit_width(x);
-	if ((x & (x-1)) == 0) {
-		return a - 1;
-	}
+	if (is2power(x)) return a - 1;
 	return a;
 #else
 	assert(x > 0);
@@ -128,21 +131,21 @@ struct ConstDivMod {
 			return true;
 		}
 		// c > 1 => A >= d => a >= ilog2(d)
-		for (uint32_t a = dbit + 1; a < 128; a++) {
-			uint128_t A = uint128_t(one) << a;
-			uint128_t c = (A + d - 1) / d;
+		for (uint32_t a = dbit + 1; a < 64; a++) {
+			uint64_t A = one << a;
+			uint64_t c = (A + d - 1) / d;
 			if (c >> (Mbit+1)) return false;
 			uint64_t e = d * c - A;
 			if (e * M_d < A) {
 				a_ = a;
-				c_ = uint64_t(c);
+				c_ = c;
 				e_ = e;
 				over_ = (c >> Mbit) != 0;
 
 				// for mod
-				for (uint32_t a2 = dbit + 1; a2 < 128; a2++) {
-					uint128_t A = uint128_t(one) << a2;
-					uint128_t c = (A + d - 1) / d;
+				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
+					uint64_t A = one << a2;
+					uint64_t c = (A + d - 1) / d;
 					if (c >> (Mbit+1)) return false;
 					uint64_t e = d * c - A;
 					if (e * M_d / A < d + 1 && e * M / A < 2 * d - r_M_) {
@@ -380,6 +383,8 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			}
 			return;
 		}
+		const uint32_t c = cdm.c_ & 0xffffffff;
+		const uint32_t c2 = cdm.c2_ & 0xffffffff;
 		switch (mode) {
 		case 0:
 			modName[0] = "mul64";
@@ -413,8 +418,13 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			modName[2] = "smallc";
 #if 1
 			mov(eax, x);
-			fast_muli(xq, cdm.c2_ & 0xffffffff, rdx);
-			shr(xq, cdm.a2_);
+			if (is2power(c2)) {
+				uint32_t len = std::bit_width(c2);
+				shr(x, cdm.a2_ - (len - 1));
+			} else {
+				fast_muli(xq, c2, rdx);
+				shr(xq, cdm.a2_);
+			}
 			fast_muli(xq, d_, rdx);
 			sub(rax, xq);
 			lea(edx, ptr[eax + d_]);
@@ -422,7 +432,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 #else
 			// slow
 			mov(eax, x);
-			fast_muli(xq, cdm.c2_ & 0xffffffff, rdx);
+			fast_muli(xq, c2, rdx);
 			shr(xq, cdm.a2_);
 			fast_muli(xq, d_, rdx);
 			sub(rax, xq);
@@ -436,7 +446,7 @@ struct ConstDivModGen : Xbyak::CodeGenerator {
 			modName[3] = "clang";
 			// generated asm code by gcc/clang
 			mov(edx, x);
-			mov(eax, cdm.c_ & 0xffffffff);
+			mov(eax, c);
 			imul(rax, rdx);
 			shr(rax, 32);
 			sub(edx, eax);

@@ -233,67 +233,121 @@ void findSmallC()
 	}
 }
 
-struct MinPair {
-	uint32_t a;
-	int d;
+struct Vd {
+	uint64_t v = 0;
+	uint32_t d = 0;
+	void put(const char *msg = nullptr) const
+	{
+		if (msg) printf("%s ", msg);
+		printf("0x%lx(d=0x%08x)", v, d);
+	}
+	void update_if_lt(const Vd& other)
+	{
+		if (other.v < v) {
+			v = other.v;
+			d = other.d;
+		} else if (other.v == v) {
+			if (other.d < d) {
+				d = other.d; // smallest d
+			}
+		}
+	}
+	void update_if_gt(const Vd& other)
+	{
+		if (other.v > v) {
+			v = other.v;
+			d = other.d;
+		} else if (other.v == v) {
+			if (other.d < d) {
+				d = other.d; // smallest d
+			}
+		}
+	}
 };
+struct Stat {
+	Vd maxa{0, 0};
+	Vd mina{uint64_t(-1), 0};
+	Vd maxc{0, 0};
+	Vd minc{uint64_t(-1), 0};
+	uint32_t d = 0;
+	uint32_t a = 0;
+	uint32_t count33bit = 0; // count 33bit c
+	uint32_t countNover = 0; // count c2 >= N
+	static const size_t N = 16;
+	uint32_t c2Tbl[N] = {}; // c2Tbl[i] is the amount of c2 == i
+	void combineTbl(uint32_t dst[N], const uint32_t src[N]) const
+	{
+		for (size_t i = 0; i < N; i++) {
+			dst[i] += src[i];
+		}
+	}
+	void putRate(const char *msg, uint32_t x) const
+	{
+		printf("%s 0x%08x (%02.1f%%)\n", msg, x, x / double(0x80000000) * 100);
+	}
+	void putTbl(const char *msg, const uint32_t tbl[N]) const
+	{
+		printf("%s\n", msg);
+		uint32_t sum = 0;
+		for (size_t i = 0; i < N; i++) {
+			printf("% 2zd %u\n", i, tbl[i]);
+			sum += tbl[i];
+		}
+		putRate("sum", sum);
+	}
+	void combine(const Stat& other)
+	{
+		maxa.update_if_gt(other.maxa);
+		mina.update_if_lt(other.mina);
 
-struct MaxPair {
-	uint32_t a;
-	int d;
+		maxc.update_if_gt(other.maxc);
+		minc.update_if_lt(other.minc);
+		combineTbl(c2Tbl, other.c2Tbl);
+		count33bit += other.count33bit;
+		countNover += other.countNover;
+	}
+	void update(const ConstDivMod& cdm)
+	{
+		const Vd va{cdm.a_, cdm.d_};
+		maxa.update_if_gt(va);
+		mina.update_if_lt(va);
+		const Vd vc{cdm.c_, cdm.d_};
+		maxc.update_if_gt(vc);
+		minc.update_if_lt(vc);
+		if (cdm.c2_ < N) {
+			c2Tbl[cdm.c2_]++;
+		} else {
+			countNover++;
+		}
+		if (cdm.over_) count33bit++;
+	}
+	void put() const
+	{
+		printf("Stat "); maxa.put("max a="); mina.put(" min a="); puts("");
+		putRate("# of 33bit c", count33bit);
+		maxc.put("max c="); minc.put(" min c="); puts("");
+		putTbl("c2Tbl", c2Tbl);
+		putRate("# of c2 >= N", countNover);
+	}
 };
-
-#pragma omp declare reduction( \
-	minpair : MinPair : \
-	omp_out = (omp_in.a < omp_out.a) ? omp_in : omp_out \
-) initializer(omp_priv = {64, 0})
-
-#pragma omp declare reduction( \
-	maxpair : MaxPair : \
-	omp_out = (omp_in.a > omp_out.a) ? omp_in : omp_out \
-) initializer(omp_priv = {0, 0})
-
 
 /*
-min a = 57 at d = 19173962
-max a = 63 at d = 1533916890
+min a = 35 at d = 7
+max a = 63 at d = 0x49e6d42e
 */
-void exec_range_a()
+void getStat()
 {
-	MinPair min_p = { 64, 0 };
-	MaxPair max_p = { 0, 0 };
-
-#if 1
+	Stat stat;
+	#pragma omp declare reduction(range_red: Stat: omp_out.combine(omp_in)) initializer(omp_priv = Stat())
+	#pragma omp parallel for reduction(range_red:stat)
 	for (int d = 1; d <= 0x7fffffff; d++) {
 		ConstDivMod cdm;
 		cdm.init(d);
 		if (cdm.over_) {
-			if (cdm.a_ < min_p.a) {
-				min_p.a = cdm.a_;
-				min_p.d = d;
-			}
-			if (cdm.a_ > max_p.a) {
-				max_p.a = cdm.a_;
-				max_p.d = d;
-			}
+			stat.update(cdm);
 		}
 	}
-#else
-#pragma omp parallel for reduction(minpair:min_p) reduction(maxpair:max_p)
-	for (int d = 1; d <= 0x7fffffff; d++) {
-		ConstDivMod cdm;
-		cdm.init(d);
-		if (cdm.over_) {
-			MinPair curMin = {cdm.a_, d};
-			min_p = curMin;
-
-			MaxPair curMax = {cdm.a_, d};
-			max_p = curMax;
-		}
-	}
-#endif
-	printf("min d=%d a=%u\n", min_p.d, min_p.a);
-	printf("max d=%d a=%u\n", max_p.d, max_p.a);
+	stat.put();
 }
 
 int main(int argc, char *argv[])
@@ -309,7 +363,7 @@ int main(int argc, char *argv[])
 	bool allx;
 	bool testc;
 	bool findc;
-	bool range_a;
+	bool stat;
 	opt.appendOpt(&d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
@@ -325,7 +379,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&allx, "allx", "test all x");
 	opt.appendBoolOpt(&testc, "testc", "test C");
 	opt.appendBoolOpt(&findc, "findc", "find small c");
-	opt.appendBoolOpt(&range_a, "range_a", "range of a");
+	opt.appendBoolOpt(&stat, "stat", "show statistic");
 	opt.appendHelp("h");
 	if (opt.parse(argc, argv)) {
 		opt.put();
@@ -353,8 +407,8 @@ int main(int argc, char *argv[])
 		findSmallC();
 		return 0;
 	}
-	if (range_a) {
-		exec_range_a();
+	if (stat) {
+		getStat();
 		return 0;
 	}
 	if (count33bit) {
