@@ -233,67 +233,76 @@ void findSmallC()
 	}
 }
 
-struct MinPair {
-	uint32_t a;
-	int d;
+struct Vd {
+	uint64_t v = 0;
+	uint32_t d = 0;
+	void put(const char *msg = nullptr) const
+	{
+		if (msg) printf("%s ", msg);
+		printf("0x%lx(d=0x%08x)", v, d);
+	}
+	void update_if_lt(const Vd& other)
+	{
+		if (other.v < v) {
+			v = other.v;
+			d = other.d;
+		} else if (other.v == v) {
+			if (other.d < d) {
+				d = other.d; // smallest d
+			}
+		}
+	}
+	void update_if_gt(const Vd& other)
+	{
+		if (other.v > v) {
+			v = other.v;
+			d = other.d;
+		} else if (other.v == v) {
+			if (other.d < d) {
+				d = other.d; // smallest d
+			}
+		}
+	}
 };
-
-struct MaxPair {
-	uint32_t a;
-	int d;
+struct Dist {
+	Vd maxa{0, 0};
+	Vd mina{uint64_t(-1), 0};
+	uint32_t d = 0;
+	uint32_t a = 0;
+	void combine(const Dist& other)
+	{
+		maxa.update_if_gt(other.maxa);
+		mina.update_if_lt(other.mina);
+	}
+	void update(uint32_t d, uint32_t a)
+	{
+		const Vd other{a, d};
+		maxa.update_if_gt(other);
+		mina.update_if_lt(other);
+	}
+	void put() const
+	{
+		printf("Dist "); maxa.put("max a="); mina.put(" min a="); puts("");
+	}
 };
-
-#pragma omp declare reduction( \
-	minpair : MinPair : \
-	omp_out = (omp_in.a < omp_out.a) ? omp_in : omp_out \
-) initializer(omp_priv = {64, 0})
-
-#pragma omp declare reduction( \
-	maxpair : MaxPair : \
-	omp_out = (omp_in.a > omp_out.a) ? omp_in : omp_out \
-) initializer(omp_priv = {0, 0})
-
 
 /*
-min a = 57 at d = 19173962
-max a = 63 at d = 1533916890
+min a = 35 at d = 7
+max a = 63 at d = 0x49e6d42e
 */
 void exec_range_a()
 {
-	MinPair min_p = { 64, 0 };
-	MaxPair max_p = { 0, 0 };
-
-#if 1
+	Dist dist;
+	#pragma omp declare reduction(range_red: Dist: omp_out.combine(omp_in)) initializer(omp_priv = Dist())
+	#pragma omp parallel for reduction(range_red:dist)
 	for (int d = 1; d <= 0x7fffffff; d++) {
 		ConstDivMod cdm;
 		cdm.init(d);
 		if (cdm.over_) {
-			if (cdm.a_ < min_p.a) {
-				min_p.a = cdm.a_;
-				min_p.d = d;
-			}
-			if (cdm.a_ > max_p.a) {
-				max_p.a = cdm.a_;
-				max_p.d = d;
-			}
+			dist.update(d, cdm.a_);
 		}
 	}
-#else
-#pragma omp parallel for reduction(minpair:min_p) reduction(maxpair:max_p)
-	for (int d = 1; d <= 0x7fffffff; d++) {
-		ConstDivMod cdm;
-		cdm.init(d);
-		if (cdm.over_) {
-			MinPair curMin = {cdm.a_, d};
-			min_p = curMin;
-
-			MaxPair curMax = {cdm.a_, d};
-			max_p = curMax;
-		}
-	}
-#endif
-	printf("min d=%d a=%u\n", min_p.d, min_p.a);
-	printf("max d=%d a=%u\n", max_p.d, max_p.a);
+	dist.put();
 }
 
 int main(int argc, char *argv[])

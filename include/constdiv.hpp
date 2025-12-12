@@ -3,7 +3,7 @@
 #include <print>
 #include <bit>
 
-#include "uint128_t.hpp"
+//#include "uint128_t.hpp"
 
 /*
 M: integer >= 1.
@@ -128,21 +128,21 @@ struct ConstDivMod {
 			return true;
 		}
 		// c > 1 => A >= d => a >= ilog2(d)
-		for (uint32_t a = dbit + 1; a < 128; a++) {
-			uint128_t A = uint128_t(one) << a;
-			uint128_t c = (A + d - 1) / d;
+		for (uint32_t a = dbit + 1; a < 64; a++) {
+			uint64_t A = one << a;
+			uint64_t c = (A + d - 1) / d;
 			if (c >> (Mbit+1)) return false;
 			uint64_t e = d * c - A;
 			if (e * M_d < A) {
 				a_ = a;
-				c_ = uint64_t(c);
+				c_ = c;
 				e_ = e;
 				over_ = (c >> Mbit) != 0;
 
 				// for mod
-				for (uint32_t a2 = dbit + 1; a2 < 128; a2++) {
-					uint128_t A = uint128_t(one) << a2;
-					uint128_t c = (A + d - 1) / d;
+				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
+					uint64_t A = one << a2;
+					uint64_t c = (A + d - 1) / d;
 					if (c >> (Mbit+1)) return false;
 					uint64_t e = d * c - A;
 					if (e * M_d / A < d + 1 && e * M / A < 2 * d - r_M_) {
