@@ -556,7 +556,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator, ConstDivMod {
 			{
 				align(32);
 				*funcPtr = getCurr<FuncType>();
-				(this->*f)(cdm_, bestMode, x0);
+				(this->*f)(bestMode, x0);
 				ret();
 			}
 			for (uint32_t mode = 0; mode < N; mode++) {
@@ -574,7 +574,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator, ConstDivMod {
 				mov(x, i);
 				for (uint32_t j = 0; j < lpN; j++) {
 					mov(cvt32(t), cvt32(x));
-					(this->*f)(cdm_, mode, t);
+					(this->*f)(mode, t);
 					add(sum, sum, t);
 					add(x, x, sum);
 				}
@@ -618,11 +618,13 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator, ConstDivMod {
 			lsr(x, x, a_);
 			return;
 		}
+		assert(over_);
+		uint64_t c33 = (one << 32) | c_;
 		switch (mode) {
 		case 0:
 			divName[0] = "mul64";
 #if 1
-			mov_imm(x9, uint64_t(c_) << (64 - a_));
+			mov_imm(x9, c33 << (64 - a_));
 			umulh(x, x9, x);
 #else
 			mov_imm(w9, c_);
@@ -748,15 +750,16 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator, ConstDivMod {
 			}
 			return;
 		}
-		assret(over_);
+		assert(over_);
+		uint64_t c33 = (one << 32) | c_;
 		switch (mode) {
 		case 0:
 			modName[0] = "mul64";
 #if 1
-			mov_imm(x9, c_);
+			mov_imm(x9, c33);
 			lsl(x10, x9, 64 - a_);
 			umulh(x10, x10, x); // [x9:x10] = c * x
-			x_sub_qd(x, x10, d, x9);
+			x_sub_qd(x, x10, d_, x9);
 #else
 			mov_imm(w9, c_);
 			movk(x9, 1, 32); // x9 = c = [1:cH:cL]
@@ -772,7 +775,7 @@ struct ConstDivModGen : Xbyak_aarch64::CodeGenerator, ConstDivMod {
 			umull(x9, wx, w9); // x9 = [cH:cL] * x
 			add(x10, x, x9, LSR, 32); // x += x9 >> 32;
 			lsr(x10, x10, a_ - 32);
-			x_sub_qd(x, x10, d, x9);
+			x_sub_qd(x, x10, d_, x9);
 			return;
 		case 2:
 			modName[2] = "smallc";
@@ -791,8 +794,8 @@ if (d == 3) { // same to msub
 			msub(x, x10, x9, x);
 }
 #else
-			if (fast_muli(x10, d, x9)) {
-				mov_imm(w9, d);
+			if (fast_muli(x10, d_, x9)) {
+				mov_imm(w9, d_);
 			}
 			sub(x, x, x10); // x - q * d
 #endif
