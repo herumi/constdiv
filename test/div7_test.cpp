@@ -212,7 +212,7 @@ void findSmallC()
 	for (int d = 1; d <= 0x7fffffff; d++) {
 		ConstDivMod cdm;
 		cdm.init(d);
-		uint64_t c = cdm.c_;
+		uint32_t c = cdm.c_;
 		std::lock_guard<std::mutex> g(mut);
 		if (c < n && ((find1 & (1<<c)) == 0)) {
 			find1 |= 1<<c;
@@ -234,12 +234,12 @@ void findSmallC()
 }
 
 struct Vd {
-	uint64_t v = 0;
+	uint32_t v = 0;
 	uint32_t d = 0;
 	void put(const char *msg = nullptr) const
 	{
 		if (msg) printf("%s ", msg);
-		printf("0x%lx(d=0x%08x)", v, d);
+		printf("0x%08x(d=0x%08x)", v, d);
 	}
 	void update_if_lt(const Vd& other)
 	{
@@ -266,9 +266,9 @@ struct Vd {
 };
 struct Stat {
 	Vd maxa{0, 0};
-	Vd mina{uint64_t(-1), 0};
+	Vd mina{uint32_t(-1), 0};
 	Vd maxc{0, 0};
-	Vd minc{uint64_t(-1), 0};
+	Vd minc{uint32_t(-1), 0};
 	uint32_t d = 0;
 	uint32_t a = 0;
 	uint32_t count33bit = 0; // count 33bit c

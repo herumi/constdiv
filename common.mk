@@ -116,7 +116,7 @@ ifeq ($(DEBUG),0)
   endif
 endif
 CFLAGS_WARN=-Wall -Wextra -Wformat=2 -Wcast-qual -Wcast-align -Wwrite-strings -Wfloat-equal -Wpointer-arith -Wundef
-CFLAGS+=-g3 -std=c++23
+CFLAGS+=-g3 -std=c++17
 INC_OPT=-I include -I test
 CFLAGS+=$(CFLAGS_WARN) $(BIT_OPT) $(INC_OPT)
 DEBUG=0
