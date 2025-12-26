@@ -276,7 +276,7 @@ struct ConstDivModGen : ConstDivMod, Xbyak::CodeGenerator {
 				Label lpL;
 				L(lpL);
 				mov(x, i);
-				for (uint32_t j = 0; j < lpN; j++) {
+				for (uint32_t k = 0; k < lpN; k++) {
 					mov(t, x);
 					(this->*f)(mode, t);
 					add(sum, eax);
@@ -346,7 +346,7 @@ struct ConstDivModGen : ConstDivMod, Xbyak::CodeGenerator {
 			divName[2] = "mul64+shrd";
 			mov(rdx, c33);
 			mulx(rdx, rax, x.cvt64());
-			shrd(rax, rdx, a_);
+			shrd(rax, rdx, uint8_t(a_));
 			return;
 		default:
 			divName[DIV_FUNC_N-1] = "clang";

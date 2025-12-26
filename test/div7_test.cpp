@@ -185,8 +185,8 @@ void checkall(uint32_t d, bool alld, bool allx)
 	if (alld) {
 		printf("checkall alld\n");
 #pragma omp parallel for
-		for (int d = 1; d <= 0x7fffffff; d++) {
-			checkd<DM>(d, allx);
+		for (int sd = 1; sd <= 0x7fffffff; sd++) {
+			checkd<DM>(sd, allx);
 		}
 	} else {
 		printf("checkall d=%u\n", d);
@@ -354,7 +354,6 @@ int main(int argc, char *argv[])
 	try
 {
 	cybozu::Option opt;
-	uint32_t d;
 	bool alld;
 	bool unitTest;
 	bool benchOnly;
@@ -364,7 +363,7 @@ int main(int argc, char *argv[])
 	bool testc;
 	bool findc;
 	bool stat;
-	opt.appendOpt(&d, 7, "d", "divisor");
+	opt.appendOpt(&g_d, 7, "d", "divisor");
 	opt.appendOpt(&LP_N, 3, "lp", "loop counter");
 	opt.appendOpt(&g_N, uint32_t(1e8), "N", "N");
 #ifdef CONST_DIV_GEN
@@ -390,12 +389,11 @@ int main(int argc, char *argv[])
 	if (unitTest) {
 		return cybozu::test::autoRun.run(argc, argv);
 	}
-	g_d = d;
 	if (find33bit) {
 		for (int d = g_d; d <= 0x7fffffff; d += 2) {
 			ConstDivMod cdm;
 			cdm.init(d);
-			if (cdm.c_ > 0xffffffff) {
+			if (cdm.over_) {
 				printf("find\n");
 				cdm.put();
 				return 1;
@@ -429,25 +427,25 @@ int main(int argc, char *argv[])
 	}
 	if (testc) {
 		puts("checkall ConstDivMod");
-		checkall<ConstDivMod>(d, alld, allx);
+		checkall<ConstDivMod>(g_d, alld, allx);
 		return 0;
 	} else {
 		puts("checkall ConstDivModGen");
-		checkall<ConstDivModGen>(d, alld, allx);
+		checkall<ConstDivModGen>(g_d, alld, allx);
 	}
 
 #ifdef CONST_DIV_GEN
 	ConstDivModGen cdmg;
-	if (!cdmg.init(d, LP_N)) {
-		printf("err cdmg d=%u\n", d);
+	if (!cdmg.init(g_d, LP_N)) {
+		printf("err cdmg d=%u\n", g_d);
 		return 1;
 	}
 #endif
 	uint32_t divOk = 0;
 	uint32_t modOk = 0;
 	if (!benchOnly) {
-		divOk = loopDivOrg(d);
-		modOk = loopModOrg(d);
+		divOk = loopDivOrg(g_d);
+		modOk = loopModOrg(g_d);
 	}
 #ifdef CONST_DIV_GEN
 	if (benchOnly) {
