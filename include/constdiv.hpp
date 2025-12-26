@@ -71,7 +71,7 @@ static inline bool is2power(uint32_t x)
 	return (x & (x-1)) == 0;
 }
 
-static inline constexpr uint32_t ceil_ilog2(uint32_t x)
+static inline uint32_t ceil_ilog2(uint32_t x)
 {
 #if 1
 	uint32_t a = std::bit_width(x);
@@ -87,7 +87,7 @@ static inline constexpr uint32_t ceil_ilog2(uint32_t x)
 #endif
 }
 
-static inline constexpr uint64_t mask(uint32_t n)
+static inline uint64_t mask(uint32_t n)
 {
 	if (n == 64) return 0xffffffffffffffff;
 	return (one << n) - 1;
@@ -112,7 +112,7 @@ struct ConstDivMod {
 			std::print("mod a2={} c=0x{:x} tmp max={:x} tmp>M={}\n", a2_, c2_, v, v>M_);
 		}
 	}
-	bool init(uint32_t d, uint64_t M = 0xffffffff)
+	bool init(uint32_t d, uint32_t M = 0xffffffff)
 	{
 		if (d == 0 || d > M) return false;
 		M_ = M;
@@ -144,12 +144,12 @@ struct ConstDivMod {
 
 				// for mod
 				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
-					uint64_t A = one << a2;
-					uint64_t c = (A + d - 1) / d;
-					if (c >> (Mbit+1)) return false;
-					uint64_t e = d * c - A;
-					if (e * M_d / A < d + 1 && e * M / A < 2 * d - r_M_) {
-						if (c >> Mbit) {
+					uint64_t A2 = one << a2;
+					uint64_t c2 = (A2 + d - 1) / d;
+					if (c2 >> (Mbit+1)) return false;
+					uint64_t e2 = d * c2 - A2;
+					if (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_) {
+						if (c2 >> Mbit) {
 							continue;
 						}
 #if 1 // enable if v <= M_ is expected
@@ -159,7 +159,7 @@ struct ConstDivMod {
 						}
 #endif
 						a2_ = a2;
-						c2_ = c;
+						c2_ = c2;
 						return true;
 					}
 				}
