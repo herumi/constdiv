@@ -337,7 +337,7 @@ struct ConstDivModGen : ConstDivMod, Xbyak::CodeGenerator {
 		switch (mode) {
 		case 0:
 			divName[0] = "mul64";
-			mov(rdx, c33 << (64 - a_));
+			mov(rdx, cs_);
 			mulx(rax, rdx, x.cvt64());
 			return;
 		case 1:
