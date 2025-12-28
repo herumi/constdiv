@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <fstream>
 
-//#include "uint128_t.hpp"
+#include "uint128_t.hpp"
 
 /*
 M: integer >= 1.
@@ -111,6 +111,7 @@ struct ConstDivMod {
 	uint32_t c_ = 0; // c = floor(A/d) = (A + d - 1) // d
 	uint32_t c2_ = 0; // for mod
 	uint32_t e_ = 0; // e = c d - A
+	uint64_t cs_ = 0; // cs = c << (64 - a)
 	bool over_ = false; // c > M?
 	bool cmp_ = false; // d > M_//2 ?
 	void put() const
@@ -153,6 +154,7 @@ struct ConstDivMod {
 				c_ = uint32_t(c);
 				e_ = uint32_t(e);
 				over_ = (c >> Mbit) != 0;
+				cs_ = uint64_t(c_) << (64 - a);
 
 				// for mod
 				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
@@ -187,11 +189,17 @@ struct ConstDivMod {
 			return x >> a_;
 		}
 		if (over_) {
+#if 1
+			uint64_t H;
+			mulUnit1(&H, x, cs_);
+			return uint32_t(H);
+#else
 			uint64_t v = x * uint64_t(c_);
 			v >>= 32;
 			v += x;
 			v >>= a_-32;
 			return uint32_t(v);
+#endif
 		} else {
 			uint32_t v = uint32_t((x * uint64_t(c_)) >> a_);
 			return v;
