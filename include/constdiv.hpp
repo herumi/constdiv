@@ -149,12 +149,10 @@ struct ConstDivMod {
 			if (e > M) continue;
 			if (e * M_d < A) {
 				a_ = a;
-				assert(c <= 0xffffffff);
-				assert(e <= 0xffffffff);
 				c_ = uint32_t(c);
 				e_ = uint32_t(e);
 				over_ = (c >> Mbit) != 0;
-				cs_ = uint64_t(c_) << (64 - a);
+				cs_ = c << (64 - a);
 
 				// for mod
 				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
