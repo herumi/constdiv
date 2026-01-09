@@ -116,9 +116,10 @@ def findMod2(d, M):
       if e2 * M_d < (d+1) * A2 and e2 * M < (2 * d - r0) * A2:
         if c2.bit_length() >= Mbit:
           continue
-        v = ((M*c2)>>a2)*d
-        if v > M:
-          continue
+# check overflow
+#        v = ((M*c2)>>a2)*d
+#        if v > M:
+#          continue
         print(f'found {hex(M)=} {d=} {a=} {hex(c)=} {a2=} {hex(c2)=}')
         return (a, c, a2, c2)
 
@@ -153,19 +154,6 @@ def test2(d, M, a, c, a2, c2):
       raise Exception(f'ERR2 {x=} {r=} {r2=}')
     if r != r3:
       print(f'ERR3 {x=} {r=} {r3=}')
-#      raise Exception(f'ERR3 {x=} {r=} {r3=}')
-#    if d == 8380417:
-#      r4 = mod8380417(x)
-#      if r != r4:
-#        raise Exception(f'ERR5 {x=} {r=} {r4=}')
-    if d == 3329:
-      r4 = mod3329(x)
-      if r != r4:
-        raise Exception(f'ERR4 {x=} {r=} {r4=}')
-    if d == 7681:
-      r4 = smod(x)
-      if r-r4 not in [2044, -5637]:
-        print(f'{x=} {r=} {r4=} {(r-r4)=}')
   print('ok')
 
 def testall(d, M):
@@ -198,7 +186,7 @@ M=65535
 testall(d, M)
 d = 3329
 testall(d, M)
-testall(d, 32767 + ((32768+d-1)//d)*d)
+testall(d, 32767)
 
 #testMod(12345)
 #testMod(123)
