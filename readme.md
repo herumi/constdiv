@@ -80,40 +80,58 @@ Since $v$ is the upper 32 bits of $x c_L$, it is less than or equal to $x$. Ther
 Thus, the right-hand side can be computed within the range of 32-bit unsigned integers without underflow or overflow.
 
 ## Our Approach
-The method at the end of the previous section assumes 32-bit CPUs. It can be optimized as follows for 64-bit CPUs.
+The method at the end of the previous section assumes 32-bit CPUs.
+
+If we use `uint128_t` and compute `(uint128_t(x) * c) >> a`, x86-64 uses the `shrd` instruction.
+However, this instruction is almost as slow as multiplication, so we want to avoid it.
+Therefore, by left-shifting the constant `c` by `(64-a)` bits in advance, we can utilize the upper 64 bits of the 128-bit result.
+This eliminates the need for shift instructions and improves performance.
+This optimization is also effective on Apple M-series chips.
+
+This method was proposed at the Symposium on Cryptography and Information Security [SCIS2026](https://www.iwsec.org/scis/2026/program.html?20260126#3B1).
+
+- [Constant Integer Division and Modulo Optimization Revisited](https://speakerdeck.com/herumi/constant-integer-division-and-modulo-optimization-revisited)  (in Japanese)
+
+
+It can be optimized as follows for 64-bit CPUs.
+
 
 ```cpp
+uint64_t c; // the above 33-bit c
+uint32_t a; // the above a
 uint32_t divd_optimized(uint32_t x)
 {
-	uint64_t v = x * uint64_t(c & 0xffffffff);
-	v >>= 32;
-	v += x;
-	v >>= a - 32;
-	return uint32_t(v);
+  uint64_t H;
+#ifdef _MSC_VER
+  __umul128(x, c << (64 - a), &H);
+#else
+  typedef __attribute__((mode(TI))) unsigned int uint128_t;
+  H = (uint128_t(x) * (c << (64 - a))) >> 64;
+#endif
+  return uint32_t(H);
 }
 ```
 
 This code can be executed on x64 Linux as:
 
-```nasm
+```x86asm
 divd_optimized_for_7:
-    mov edi, edi
-    imul    rax, rdi, 0x24924925
-    shr rax, 32
-    add rax, rdi
-    shr rax, 3
+    mov edx, edi ; edx = x
+    movabs  rax, 2635249153617166336
+    mulx    rax, rax, rax ; rax = H
     ret
 ```
 
 On Apple M4:
 
-```nasm
+```x86asm
 divd_optimized_for_7
-  mov w9, #0x4925
-  movk w9, #0x2492, 16
-  umull x9, wx, w9 // x9 = cL * x
-  add x0, x0, x9, LSR, 32 // x += x9 >> 32;
-  lsr x0, x0, a - 32 // x >>= a - 32;
+    mov w8, w0
+    mov x9, #2684354560                 ; =0xa0000000
+    movk    x9, #18724, lsl #32
+    movk    x9, #9362, lsl #48 ; x9 = c << (64 - a)
+    umulh   x0, x8, x9 ; x0 = H
+    ret
 ```
 This library uses the following class to achieve fast integer division with given constants.
 
@@ -135,7 +153,7 @@ d in [1, M]
 take A >= d.
   c := (A + d - 1) // d.
   e := d c - A.
-  M_d := M - ((M+1)%d).
+  M_d := max{x in [0, M] | x % d = d-1}.
 
 Lemma.
 1. By definition,
