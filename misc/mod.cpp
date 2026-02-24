@@ -21,9 +21,7 @@ struct Mod2 {
 	bool cmp_ = false; // d > M_//2 ?
 	void put() const
 	{
-		if (over_) {
-			printf("d=0x%08x a2=%u c2=0x%08x a3=%u c3=0x%08x\n", d_, a2_, c2_, a3_, c3_);
-		}
+		printf("d=0x%08x over_=%d a2=%u c2=0x%08x a3=%u c3=0x%08x\n", d_, over_, a2_, c2_, a3_, c3_);
 	}
 	bool init(uint32_t d, uint32_t M = 0xffffffff)
 	{
@@ -64,20 +62,20 @@ struct Mod2 {
 					uint64_t c2 = (A2 + d - 1) / d;
 					if (c2 >> Mbit) continue;
 					uint64_t e2 = d * c2 - A2;
-					if (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_) {
+					if (!found2 && (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_)) {
 						a2_ = a2;
 						assert(c2 <= 0xffffffff);
 						c2_ = uint32_t(c2);
 						found2 = true;
 					}
-					if (e2 * M / A2 < d + 1) {
+					if (!found3 && (e2 * M / A2 < d + 1)) {
 						a3_ = a2;
 						assert(a3_ <= 0xffffffff);
 						c3_ = uint32_t(c2);
 						found3 = true;
 					}
 					if (found2 && found3) {
-						if (a2_ != a3_) put();
+//						if (a2_ != a3_) put();
 						return true;
 					}
 				}
@@ -124,6 +122,7 @@ struct Stat {
 	Vd minc2{uint32_t(-1), 0};
 	Vd maxc3{0, 0};
 	Vd minc3{uint32_t(-1), 0};
+	uint32_t diffN = 0;
 	void combine(const Stat& other)
 	{
 		maxc2.update_if_gt(other.maxc2);
@@ -131,6 +130,7 @@ struct Stat {
 
 		maxc3.update_if_gt(other.maxc3);
 		minc3.update_if_lt(other.minc3);
+		diffN += other.diffN;
 	}
 	void update(const Mod2& mod)
 	{
@@ -140,16 +140,31 @@ struct Stat {
 		const Vd vc3{mod.c3_, mod.d_};
 		maxc3.update_if_gt(vc3);
 		minc3.update_if_lt(vc3);
+		if (mod.a2_ != mod.a3_) diffN++;
 	}
 	void put() const
 	{
-		printf("Stat "); maxc2.put("max c2="); minc2.put(" min c2="); puts("");
+		puts("Stat");
+		maxc2.put("max c2="); minc2.put(" min c2="); puts("");
 		maxc3.put("max c3="); minc3.put(" min c3="); puts("");
+		printf("diffN=%u\n", diffN);
 	}
 };
 
-int main()
+int main(int argc, char *argv[])
 {
+	if (argc == 2) {
+		uint32_t d = atoi(argv[1]);
+		printf("d=%u\n", d);
+		Mod2 mod;
+		if (mod.init(d)) {
+			mod.put();
+			puts("ok");
+		} else {
+			puts("init err");
+		}
+		return 0;
+	}
 	Stat stat;
 	#pragma omp declare reduction(range_red: Stat: omp_out.combine(omp_in)) initializer(omp_priv = Stat())
 	#pragma omp parallel for reduction(range_red:stat)
