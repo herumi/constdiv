@@ -1,8 +1,9 @@
-// g++ -O3 -I ../include mod.cpp -I ../test -I ../ext/xbyak -fopenmp
+// g++ -O3 -I ../include mod.cpp -I ../test -fopenmp
 #include "constdiv.hpp"
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
+#include <cybozu/option.hpp>
 
 using namespace constdiv;
 
@@ -12,16 +13,14 @@ struct Mod2 {
 	uint32_t r_M_ = 0; // M % d
 	uint32_t a_ = 0; // index of 2-power
 	uint32_t a2_ = 0; // for mod
-	uint32_t a3_ = 0; // for mod
 	uint32_t c_ = 0; // c = floor(A/d) = (A + d - 1) // d
 	uint32_t c2_ = 0; // for mod
-	uint32_t c3_ = 0; // for mod
 	uint32_t e_ = 0; // e = c d - A
 	bool over_ = false; // c > M?
 	bool cmp_ = false; // d > M_//2 ?
 	void put() const
 	{
-		printf("d=0x%08x over_=%d a2=%u c2=0x%08x a3=%u c3=0x%08x\n", d_, over_, a2_, c2_, a3_, c3_);
+		printf("d=0x%08x over_=%d a2=%u c2=0x%08x\n", d_, over_, a2_, c2_);
 	}
 	bool init(uint32_t d, uint32_t M = 0xffffffff)
 	{
@@ -54,28 +53,15 @@ struct Mod2 {
 				e_ = uint32_t(e);
 				over_ = (c >> Mbit) != 0;
 
-				// for mod
-				bool found2 = false;
-				bool found3 = false;
 				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
 					uint64_t A2 = one << a2;
 					uint64_t c2 = (A2 + d - 1) / d;
 					if (c2 >> Mbit) continue;
 					uint64_t e2 = d * c2 - A2;
-					if (!found2 && (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_)) {
+					if (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_) {
 						a2_ = a2;
 						assert(c2 <= 0xffffffff);
 						c2_ = uint32_t(c2);
-						found2 = true;
-					}
-					if (!found3 && (e2 * M / A2 < d + 1)) {
-						a3_ = a2;
-						assert(a3_ <= 0xffffffff);
-						c3_ = uint32_t(c2);
-						found3 = true;
-					}
-					if (found2 && found3) {
-//						if (a2_ != a3_) put();
 						return true;
 					}
 				}
@@ -83,6 +69,39 @@ struct Mod2 {
 			}
 		}
 		return false;
+	}
+	uint32_t umod(uint32_t x) const
+	{
+		if (cmp_) {
+			if (x >= d_) x -= d_;
+			return x;
+		}
+		if (c_ == 1) {
+			return x & (d_ - 1);
+		}
+		if (over_) {
+			int64_t v = int64_t((x * uint64_t(c2_)) >> a2_) * d_;
+			v = x - v;
+			if (v < 0) {
+				v += d_;
+			}
+			return uint32_t(v);
+		}
+		int64_t v = int64_t((x * c_) >> a_) * d_;
+		v = x - v;
+		return uint32_t(v);
+	}
+	int smod(int x) const
+	{
+		assert(!cmp_ && c_ != 1);
+		if (over_) {
+			int64_t q = (x * int64_t(c2_)) >> a2_;
+			int64_t v = x - q * d_;
+			return int(v);
+		}
+		int64_t q = (x * int64_t(c_)) >> a_;
+		int64_t v = x - q * d_;
+		return int(v);
 	}
 };
 
@@ -120,51 +139,79 @@ struct Vd {
 struct Stat {
 	Vd maxc2{0, 0};
 	Vd minc2{uint32_t(-1), 0};
-	Vd maxc3{0, 0};
-	Vd minc3{uint32_t(-1), 0};
-	uint32_t diffN = 0;
 	void combine(const Stat& other)
 	{
 		maxc2.update_if_gt(other.maxc2);
 		minc2.update_if_lt(other.minc2);
-
-		maxc3.update_if_gt(other.maxc3);
-		minc3.update_if_lt(other.minc3);
-		diffN += other.diffN;
 	}
 	void update(const Mod2& mod)
 	{
 		const Vd vc2{mod.c2_, mod.d_};
 		maxc2.update_if_gt(vc2);
 		minc2.update_if_lt(vc2);
-		const Vd vc3{mod.c3_, mod.d_};
-		maxc3.update_if_gt(vc3);
-		minc3.update_if_lt(vc3);
-		if (mod.a2_ != mod.a3_) diffN++;
 	}
 	void put() const
 	{
 		puts("Stat");
 		maxc2.put("max c2="); minc2.put(" min c2="); puts("");
-		maxc3.put("max c3="); minc3.put(" min c3="); puts("");
-		printf("diffN=%u\n", diffN);
 	}
 };
 
+void checkd(const Mod2& mod)
+{
+	const uint32_t M = mod.M_;
+	const int H = M/2;
+	const int d = mod.d_;
+	const int min = -d/2;
+	const int max = d + d/2;
+	for (int x = -H; x <= H; x++) {
+		int r = mod.smod(x);
+		if (min < r && r < max && ((x - r) % d == 0)) continue;
+		printf("ERR d=%d x=%d x%%d=%d r=%d\n", d, x, x % d, r);
+	}
+}
+
 int main(int argc, char *argv[])
 {
-	if (argc == 2) {
-		uint32_t d = atoi(argv[1]);
+	cybozu::Option opt;
+	uint32_t M;
+	int d;
+	bool showStat;
+	opt.appendOpt(&M, 0xffffffff, "m", "max of x");
+	opt.appendOpt(&d, 0, "d", "divisor");
+	opt.appendBoolOpt(&showStat, "st", "show statistics");
+	opt.appendHelp("h", "show this message");
+	if (!opt.parse(argc, argv)) {
+		opt.usage();
+		return 1;
+	}
+	if (d) {
 		printf("d=%u\n", d);
 		Mod2 mod;
-		if (mod.init(d)) {
+		if (mod.init(d, M)) {
 			mod.put();
+			checkd(mod);
 			puts("ok");
 		} else {
 			puts("init err");
 		}
 		return 0;
+	} else {
+		printf("check all d in [1, 0x%08x]\n", M);
+		const int H = M/2;
+		printf("H=%d\n", H);
+		#pragma omp parallel for
+		for (int d = 1; d <= H; d++) {
+			if ((d & 1) == 0) continue;
+			Mod2 mod;
+			if (mod.init(d, M) && mod.over_) {
+				checkd(mod);
+			}
+		}
+		puts("ok");
+		return 0;
 	}
+	if (!showStat) return 0;
 	Stat stat;
 	#pragma omp declare reduction(range_red: Stat: omp_out.combine(omp_in)) initializer(omp_priv = Stat())
 	#pragma omp parallel for reduction(range_red:stat)
