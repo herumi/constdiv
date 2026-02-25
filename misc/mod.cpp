@@ -202,9 +202,11 @@ int main(int argc, char *argv[])
 		printf("H=%d\n", H);
 		#pragma omp parallel for
 		for (int d = 1; d <= H; d++) {
-			if ((d & 1) == 0) continue;
+//			if ((d & 1) == 0) continue;
 			Mod2 mod;
-			if (mod.init(d, M) && mod.over_) {
+			if (mod.init(d, M)) {
+				if (mod.c_ == 1) continue;
+//				if (mod.over_) continue;
 				checkd(mod);
 			}
 		}
