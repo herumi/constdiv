@@ -18,8 +18,9 @@ struct Mod2 {
 	uint32_t e_ = 0; // e = c d - A
 	bool over_ = false; // c > M?
 	bool cmp_ = false; // d > M_//2 ?
-	void put() const
+	void put(const char *msg = NULL) const
 	{
+		if (msg) printf("%s ", msg);
 		printf("d=0x%08x over_=%d a2=%u c2=0x%08x\n", d_, over_, a2_, c2_);
 	}
 	bool init(uint32_t d, uint32_t M = 0xffffffff)
@@ -52,23 +53,24 @@ struct Mod2 {
 				c_ = uint32_t(c);
 				e_ = uint32_t(e);
 				over_ = (c >> Mbit) != 0;
-
-				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
-					uint64_t A2 = one << a2;
-					uint64_t c2 = (A2 + d - 1) / d;
-					if (c2 >> Mbit) continue;
-					uint64_t e2 = d * c2 - A2;
-					if (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_) {
-						a2_ = a2;
-						assert(c2 <= 0xffffffff);
-						c2_ = uint32_t(c2);
-						return true;
-					}
-				}
-				return false;
+				break;
 			}
 		}
-		return false;
+		if (a_ == 0) return false;
+
+		for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
+			uint64_t A2 = one << a2;
+			uint64_t c2 = (A2 + d - 1) / d;
+			if (c2 >> Mbit) continue;
+			uint64_t e2 = d * c2 - A2;
+			if (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_) {
+				a2_ = a2;
+				assert(c2 <= 0xffffffff);
+				c2_ = uint32_t(c2);
+				break;
+			}
+		}
+		return a2_ != 0;
 	}
 	uint32_t umod(uint32_t x) const
 	{
@@ -93,15 +95,15 @@ struct Mod2 {
 	}
 	int smod(int x) const
 	{
-		assert(!cmp_ && c_ != 1);
-		if (over_) {
-			int64_t q = (x * int64_t(c2_)) >> a2_;
-			int64_t v = x - q * d_;
-			return int(v);
-		}
+		assert(c_ != 1); // necessary
+		int64_t q = (x * int64_t(c2_)) >> a2_;
+		int64_t v = x - q * d_;
+		return int(v);
+#if 0
 		int64_t q = (x * int64_t(c_)) >> a_;
 		int64_t v = x - q * d_;
 		return int(v);
+#endif
 	}
 };
 
@@ -167,7 +169,9 @@ void checkd(const Mod2& mod)
 	for (int x = -H; x <= H; x++) {
 		int r = mod.smod(x);
 		if (min < r && r < max && ((x - r) % d == 0)) continue;
-		printf("ERR d=%d x=%d x%%d=%d r=%d\n", d, x, x % d, r);
+		mod.put("ERR");
+		printf("x=%d x%%d=%d r=%d\n", x, x % d, r);
+		return;
 	}
 }
 
