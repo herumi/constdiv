@@ -275,6 +275,7 @@ struct Stat {
 	uint32_t countNover = 0; // count c2 >= N
 	static const size_t N = 16;
 	uint32_t c2Tbl[N] = {}; // c2Tbl[i] is the amount of c2 == i
+	uint32_t maxd_for_c2_is_1 = 0;
 	void combineTbl(uint32_t dst[N], const uint32_t src[N]) const
 	{
 		for (size_t i = 0; i < N; i++) {
@@ -305,6 +306,7 @@ struct Stat {
 		combineTbl(c2Tbl, other.c2Tbl);
 		count33bit += other.count33bit;
 		countNover += other.countNover;
+		maxd_for_c2_is_1 = (std::max)(maxd_for_c2_is_1, other.maxd_for_c2_is_1);
 	}
 	void update(const ConstDivMod& cdm)
 	{
@@ -320,6 +322,7 @@ struct Stat {
 			countNover++;
 		}
 		if (cdm.over_) count33bit++;
+		if (cdm.c2_ == 1 && cdm.d_ > maxd_for_c2_is_1) maxd_for_c2_is_1 = cdm.d_;
 	}
 	void put() const
 	{
@@ -328,6 +331,7 @@ struct Stat {
 		maxc.put("max c="); minc.put(" min c="); puts("");
 		putTbl("c2Tbl", c2Tbl);
 		putRate("# of c2 >= N", countNover);
+		printf("maxd for c2 = 1: %u\n", maxd_for_c2_is_1);
 	}
 };
 
