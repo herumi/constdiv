@@ -155,7 +155,7 @@ struct ConstDivMod {
 				cs_ = c << (64 - a);
 
 				// for mod
-				for (uint32_t a2 = dbit + 1; a2 < 64; a2++) {
+				for (uint32_t a2 = 1; a2 < 64; a2++) {
 					uint64_t A2 = one << a2;
 					uint64_t c2 = (A2 + d - 1) / d;
 					if (c2 >> Mbit) continue;
