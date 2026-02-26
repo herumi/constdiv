@@ -153,27 +153,27 @@ struct ConstDivMod {
 				e_ = uint32_t(e);
 				over_ = (c >> Mbit) != 0;
 				cs_ = c << (64 - a);
-
-				// for mod
-				for (uint32_t a2 = 1; a2 < 64; a2++) {
-					uint64_t A2 = one << a2;
-					uint64_t c2 = (A2 + d - 1) / d;
-					if (c2 >> Mbit) continue;
-					uint64_t e2 = d * c2 - A2;
-					if (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_) {
+				break;
+			}
+		}
+		if (a_ == 0) return false;
+		// for mod
+		for (uint32_t a2 = 1; a2 < 64; a2++) {
+			uint64_t A2 = one << a2;
+			uint64_t c2 = (A2 + d - 1) / d;
+			if (c2 >> Mbit) continue;
+			uint64_t e2 = d * c2 - A2;
+			if (e2 * M_d / A2 < d + 1 && e2 * M / A2 < 2 * d - r_M_) {
 #if 0 // enable if v <= M_ is expected
-						uint64_t v = ((M*c2_)>>a2_)*d_;
-						if (v > M_) {
-							continue;
-						}
-#endif
-						a2_ = a2;
-						assert(c2 <= 0xffffffff);
-						c2_ = uint32_t(c2);
-						return true;
-					}
+				uint64_t v = ((M*c2_)>>a2_)*d_;
+				if (v > M_) {
+					continue;
 				}
-				return false;
+#endif
+				a2_ = a2;
+				assert(c2 <= 0xffffffff);
+				c2_ = uint32_t(c2);
+				return true;
 			}
 		}
 		return false;
