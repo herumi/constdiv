@@ -92,6 +92,8 @@ This method was proposed at the Symposium on Cryptography and Information Securi
 
 - [Constant Integer Division and Modulo Optimization Revisited](https://speakerdeck.com/herumi/constant-integer-division-and-modulo-optimization-revisited)  (in Japanese)
 
+- The pull request [[SelectionDAG] Optimize 32-bit udiv with 33-bit magic constants on 64-bit targets](https://github.com/llvm/llvm-project/pull/181288) which llvm supports this optimization is merged into llvm:main.
+
 
 It can be optimized as follows for 64-bit CPUs.
 
