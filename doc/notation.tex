@@ -1,0 +1,108 @@
+\usepackage[hyphens]{url}
+%\usepackage{listings, jlisting}
+\usepackage{listings, listing}
+\renewcommand{\lstlistingname}{Listing}
+
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{color}
+\usepackage{braket}
+\usepackage[dvipdfmx]{graphicx}
+\usepackage{bbm}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\renewcommand{\appendixname}{Appendix}
+
+\newcommand{\Gen}{\mathsf{Gen}}
+\newcommand{\Enc}{\mathsf{Enc}}
+\newcommand{\Dec}{\mathsf{Dec}}
+\newcommand{\OHV}{\mathsf{OHV}}
+\newcommand{\EOHV}{\mathsf{EOHV}}
+\newcommand{\sel}{\mathsf{sel}}
+\newcommand{\eval}{\mathsf{eval}}
+\newcommand{\ReLU}{\mathsf{ReLU}}
+\newcommand{\len}{\mathsf{len}}
+\newcommand{\bin}{\mathsf{bin}}
+\newcommand{\add}{\mathsf{add}}
+\newcommand{\dbl}{\mathsf{dbl}}
+\newcommand{\mul}{\mathsf{mul}}
+\newcommand{\inv}{\mathsf{inv}}
+\newcommand{\mont}{\mathsf{mont}}
+\newcommand{\toMont}{\mathsf{toMont}}
+\newcommand{\fromMont}{\mathsf{fromMont}}
+\newcommand{\select}{\mathsf{select}}
+\newcommand{\ilog}{\mathsf{ilog_2}}
+\newcommand{\mask}{\mathsf{uint52\_t}}
+\newcommand{\load}{\mathsf{load}}
+\newcommand{\store}{\mathsf{store}}
+\newcommand{\get}{\leftarrow}
+\newcommand{\uget}{\underset{R}{\leftarrow}}
+\newcommand{\ZZ}{\mathbb{Z}}
+\newcommand{\FF}{\mathbb{F}}
+\renewcommand{\vec}[1] {\boldsymbol{#1}}
+\newcommand{\vx}{\vec{x}}
+\newcommand{\vy}{\vec{y}}
+\newcommand{\ignore}[1]{}
+
+\def\qed{\hfill $\Box$}
+
+\newcommand{\argmax}{\mathop{\rm arg~max}\limits}
+\newcommand{\midashi}[1]{\par\noindent\textbf{#1}：}
+\newcommand{\ceil}[1]{\lceil #1 \rceil}
+\newcommand{\floor}[1]{\lfloor #1 \rfloor}
+\newcommand{\rnd}[1]{\lfloor #1 \rceil}
+\newcommand{\divmod}[2]{\mathsf{divmod}(#1,#2)}
+\newcommand{\idiv}[2]{#1 {\rm // } #2}
+\newcommand{\imod}[2]{#1 {\rm \% } #2}
+
+\newcommand{\mydescription}[1]{
+\begin{description}
+\setlength{\itemindent}{0zw}
+\setlength{\leftskip}{-2.5zw}
+\setlength{\labelsep}{0zw}
+#1
+\end{description}
+}
+\newcommand{\tablecap}[2]{{
+\begin{table}[htbp]
+\begin{center}
+\caption{#1}
+#2
+\end{center}
+\end{table}
+}}
+
+\lstdefinelanguage{asm}{
+  morecomment=[l]{;},
+  morecomment=[l]{\#},
+  morestring=[b]",
+  sensitive=true
+}
+
+\newcommand{\lstinputlistingasm}[2][]{%
+  {\catcode`\%=12\relax\lstinputlisting[mathescape=false,#1]{#2}}%
+}
+
+\lstset{
+  mathescape=true,      % 数式エスケープを有効化
+%  escapechar=|,         % エスケープ文字を設定
+  tabsize=2,
+  basicstyle={\ttfamily},
+  identifierstyle={\small},
+  commentstyle={\small\itshape},
+  keywordstyle={\small\bfseries},
+  ndkeywordstyle={\small},
+  stringstyle={\small\ttfamily},
+  frame={tb},
+  breaklines=true,
+  columns=[l]{fullflexible},
+  numbers=left,
+  xrightmargin=0zw,
+  xleftmargin=3zw,
+  numberstyle={\scriptsize},
+  stepnumber=1,
+  numbersep=1zw,
+  lineskip=-0.5ex
+}
