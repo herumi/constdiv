@@ -220,9 +220,9 @@ struct ConstDivMod {
 			}
 			return uint32_t(v);
 		}
-		int64_t v = int64_t((x * c_) >> a_) * d_;
+		uint32_t v = uint32_t((x * uint64_t(c_)) >> a_) * d_;
 		v = x - v;
-		return uint32_t(v);
+		return v;
 	}
 };
 
