@@ -1,9 +1,9 @@
-all: main-en.pdf main.pdf
+all: main.pdf main-ja.pdf
 
-main-en.pdf: main-en.tex main.bib notation.tex
-	platex main-en.tex
-	pbibtex main-en
-	ptex2pdf -l -ot -synctex=1 main-en.tex
+main-ja.pdf: main-ja.tex main.bib notation.tex
+	platex main-ja.tex
+	pbibtex main-ja
+	ptex2pdf -l -ot -synctex=1 main-ja.tex
 
 main.pdf: main.tex main.bib notation.tex
 	platex main.tex
@@ -15,4 +15,4 @@ conv:
 	python3 comma.py
 
 clean:
-	rm -rf main.pdf *.aux *.dvi *.log main.bbl main.blg
+	rm -rf *.pdf *.aux *.dvi *.log *.bbl *.blg

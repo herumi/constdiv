@@ -1,0 +1,237 @@
+%% http://eprint.iacr.org/
+\documentclass{jarticle}
+\usepackage[margin=25mm]{geometry}
+\input{notation}
+
+\begin{document}
+
+
+\title{
+  Optimization of 32-bit unsigned division by constants on 64-bit targets
+}
+\author{
+  MITSUNARI Shigeo
+  \thanks{
+    Cybozu Labs, Inc.
+  }
+}
+\date{}
+\maketitle
+
+\begin{abstract}
+GranlundとMontgomeryが符号無し整数に対する定数整数除算の最適化手法を提唱した\cite{GM}．
+その手法（以下GM法と呼ぶ）は\cite{CDW}\cite{Hacker}などに一部改善され，現在の主要なコンパイラ（GCC, Clang, Microsoft Compiler, Apple Clangなど）で採用されている．
+しかし，たとえばx/7に対してそれらのコンパイラが生成するコードは32ビットCPU向けの設計であり，64ビットCPU向けの性能を十分に活かしていない．
+
+本論文は64ビットCPU向けの32ビット符号無し定数除算の最適化手法を提案する．
+そして，LLVM/GCC向けのパッチを作成し，後述のマイクロベンチマークにおいて，Intel Xeon w9-3495X (Sapphire Rapids)で1.67倍，Apple M4（Apple MシリーズSoC）で1.98倍の高速化を達成した．
+LLVM向けのパッチはllvm:mainでマージされている\cite{LLVMopt}．
+
+\noindent\emph{\bf Keywords:} 定数整数除算最適化, コンパイラ
+\end{abstract}
+
+\section{記法}
+本論文では以下の記号を使う．
+$\ZZ$ を整数の集合，$a, b ∈ \ZZ$ について $[a, b]:=\Set{c ∈ \ZZ \mid a ≦ c ≦ b}$．
+実数 $x$ について床関数 $\floor{x}:=\max \Set{y ∈ \ZZ \mid y ≦ x}$，天井関数 $\ceil{x}:=\min \Set{y ∈ \ZZ \mid y ≧ x}$ とする．
+0以上の整数 $a$, 1以上の整数 $b$ について, $a$ を $b$ で割った商を $q$, 余りを $r$ とするとき $q:=\idiv{a}{b}=\floor{a/b}$, $r:=\imod{a}{b}$と表す．
+すなわち $a = b q + r$ かつ $0 ≦ r < b$ である．
+非負整数 $x$, $a$ に対して論理右シフトを $x \gg a:=\idiv{x}{2^a}$ と定義する．
+非負整数 $M$ を被除数のとりえる最大値, 除数を $d ∈ [1, M]$ とする．
+条件 {\tt cond} が真のとき $x$, 偽のとき $y$ を返す関数を $\select({\tt cond}, x, y)$ と表す．
+32/64/128ビット符号無し整数の型を {\tt u32/u64/u128} と表記する．
+
+\section{GM法}
+まず既存手法のサーベイを行う．
+1以上の整数$M$と$d$を固定し，$x∈[0, M]$に対して$\idiv{x}{d}$を考える．
+GCC, Clangなどの最適化コンパイラが利用しているのは次の定理である\cite{GM}\cite{Hacker}\cite{Optimal}．
+\begin{theorem}[GM-method]\label{TH_GM}
+$d ∈ [1, M]$ を固定する．
+$M_d:=\max \Set{x ∈ [0, M] \mid \imod{x}{d}=d-1}$ とおく．
+正の整数 $c$, $A$ に対して $1/d \le c/A < (1+1/M_d)/d$ を満たすなら全ての $x ∈[0, M]$ に対して $\idiv{x}{d}=\idiv{(x c)}{A}$ が成り立つ．
+\end{theorem}
+
+$A$に対して$c:=\ceil{A/d}$，$e:=cd - A$とおくと，$0 \le e < d$であり，$1/d \le c/A$が成り立つ．
+$c/A < (1+1/M_d)/d=(M_d+1)/(d M_d)$である必要十分条件は両辺に$d M_d$を掛けて $c d M_d < (M_d + 1)A$ であり，整理すると $e M_d < A$である．
+
+以下，32ビット符号無し整数に限定して議論するため$M=2^{32}-1$とする．
+コンパイラは$\idiv{x}{d}$を最適化する場合，$d$に応じて大きく4通りのパターンに分かれる．
+
+\lstinputlisting[
+    language=C++,
+    caption={u32型定数除算},
+    label={CODE_ref},
+]{src/udivd.c}
+
+\subsection{$d$ が2べきの場合}
+$d=2^a$（$a$は整数）の場合，$\idiv{x}{d} = x \gg a$ と単純に論理右シフトに置き換える．
+\subsection{$d> \idiv{M}{2}$ の場合}
+$\idiv{x}{d} ∈ \Set{0, 1}$ なので $\idiv{x}{d} = \select(x < d, 0, 1)$ と条件分岐で実装する．
+
+\subsection{それ以外の場合}
+\begin{lemma}
+$M$を$m$ビット，$d$を2べきでない整数とすると$c$は$m+1$ビット以下にとれる．
+\end{lemma}
+$M$が$m$ビットなので$2^{m-1} \le M < 2^m$．$d$を2べきでない$b$ビット整数とすると$2^{b-1} < d < 2^b$．$e<d$より
+$e M_d < d M < 2^{m+b}$．よって$A=2^{m+b}$とすると定理の条件を満たす．このとき$c=\ceil{A/d} \le 2^{m+b-b+1}=2^{m+1}$．
+$c=2^{m+1}$のときは$c$, $A$を$c/2$, $A/2$に取り直しても定理の条件を満たすので$c=2^m$にできる．よって$c<2^{m+1}$とできる．
+\qed
+
+特に$m=32$のとき$c$は高々33ビットである．
+
+$c$が32ビット以下の場合は
+$x$ と $c$ の乗算結果64ビットを論理右シフトする実装:
+$\idiv{x}{d}=(x c) \gg a$ でよい．
+$c$が33ビットの場合が本論文の主題であり，次節で述べる．
+$d < 0x80000000$となる0x7fffffff個のうち非自明なパターンを全数チェックしたところ，$c$が32ビットに収まるのは約77\%，33ビットとなるのは約23\%であった．
+
+\subsection{$c$が33ビットの場合}
+本研究の検証時点（2026年3月）において，x86-64やApple Mシリーズ用コンパイラ GCC (14.2.0), Clang (18.1.3),
+Visual Studio 2026のMicrosoft Compiler (19.50.3571), Apple clang (17.0.0) のアセンブリ言語出力結果を見ると，
+全てListing \ref{CODE_gm}相当のアルゴリズムを採用している（コンパイルオプションは後述のベンチマークに利用したものと同じ）．
+
+\lstinputlisting[
+    language=C++,
+    caption={cが33ビットの場合のGM方式},
+    label={CODE_gm},
+]{src/udivd_gm.c}
+
+Listing \ref{CODE_gm}の意味を解説する．
+$c$ が33ビットの場合，$a \ge 33$ であり，
+$$(x c)\gg a=(((x c) \gg 32) \gg 1) \gg (a-33)$$
+と3段階のビットシフトに置き換える．
+$c$ の下位32ビットを $c_L$ とすると $c=2^{32} + c_L$ と書け，
+$x c = x (2^{32} + c_L) = (x 2^{32}) + x c_L$.
+$y:=(x c_L)\gg 32$ とすると $(x c)\gg 32 = y+x$ となる．
+
+ここで $y=\idiv{(x c_L)}{2^{32}}\le\idiv{(x 2^{32})}{2^{32}} = x$ を利用すると
+$2^{32}>\idiv{(y+x)}{2}=\idiv{(x-y+2 y)}{2}=\idiv{(x-y)}{2}+y$ となる．
+この式変形をすると計算途中の値が32ビットを超えることがない．
+
+たとえばListing \ref{CODE_div7_m4_org}は $d=7$ のときにListing \ref{CODE_ref}を{\tt -Ofast}オプションでビルドしたときのアセンブリ言語出力である（パラメータは$a=35$,  $c={\tt 0x124924925}$）．
+
+\lstinputlisting[
+    language=C++,
+    caption={Apple M4用Clangのアセンブリ言語出力},
+    label={CODE_div7_m4_org},
+]{src/m4-udiv7.c}
+
+\section{提案方式}
+Listing \ref{CODE_gm}は乗算を除いて中間結果が32ビットを越えないように設計されているが，64ビットCPUではその拘束条件は不要である．
+数式通りに実装するなら，乗算命令を用いて{\tt u64}×{\tt u64}={\tt u128}を計算した後，論理右シフトをすることになる．
+しかし，x86-64における128ビット論理右シフト命令{\tt shrd}は，たとえばSkylake-Xアーキテクチャで{\tt mul}とレイテンシとスループットが同じであるため効率が悪い\cite{anger}．
+後述のベンチマークで使用したSapphire Rapidsアーキテクチャでも同様の傾向が見られた．
+
+\tablecap{Skylake-Xアーキテクチャ: レイテンシとスループット\cite{anger}}{
+\label{TBL_xeon}
+\begin{tabular}{|l|c|c|}
+\hline
+命令 & レイテンシ & スループット \\\hline
+add/sub & 1 & 0.25 \\\hline
+shr & 1 & 0.5 \\\hline
+imul & 3 & 1 \\\hline
+shrd & 3 & 1 \\\hline
+\end{tabular}
+}
+
+そこで，次の手法を提案する．
+$\idiv{(x c)}{2^a}=\idiv{(x (2^{64-a} c))}{2^{64}}$ であることを利用する．ここで$x$は64ビットに0拡張する．
+$c$ は33ビットで$d \le \idiv{M}{2}$なので $a$ は33以上63以下となり $2^{64-a} c$ は64ビットに収まる．
+また128ビット値は上位64ビット $H$，下位64ビット $L$ のレジスタ2個で表現されるため，64ビット論理右シフトは $H$ を取り出すだけとなり即値 $c$ の設定以外は乗算命令1回で済む．
+Apple M4などのAArch64アーキテクチャでは，{\tt u64}×{\tt u64}={\tt u128}乗算命令は上位64ビットを返す{\tt umulh}と下位64ビットを返す{\tt mul}に分かれている．
+この変形により{\tt umulh}命令1回で実装できる．
+x86-64用はCODE \ref{CODE_div_xeon_opt}，M4用はCODE \ref{CODE_div_m4_opt}となる．
+ループ内で同一の定数除算をする場合，即値は最適化により再利用できるため事実上，乗算1命令となる．
+
+\lstinputlisting[
+    language=C++,
+    caption={x86-64用提案方式},
+    label={CODE_div_xeon_opt},
+]{src/mul-xeon.c}
+
+\lstinputlisting[
+    language=C++,
+    caption={M4用提案方式},
+    label={CODE_div_m4_opt},
+]{src/mul-m4.c}
+
+\section{LLVM/GCCに対する改善とベンチマーク}
+Clangのコンパイラ基盤であるLLVMに提案方式の最適化を行う変更を行った\cite{LLVMopt}．
+その効果を見るために，32ビット符号無し整数を定数で割るベンチマークコードを作成した．
+Listing \ref{CODE_bench}中の除数7, 19, 107は$c$が33ビットになるパターンである．
+
+\lstinputlisting[
+    language=C++,
+    caption={bench.c},
+    label={CODE_bench},
+]{src/bench.c}
+
+まず\texttt{clang-18 -O2 -S -emit-llvm bench.c -o bench.ll}でClangを用いてLLVM-IRである\texttt{bench.ll}を作成した．
+次にLLVM-IRから各CPU向けのアセンブリ言語を生成するためにLLVM 23.0.0のコマンド\texttt{llc}を用いた．
+
+\noindent
+Xeon用は\texttt{llc -O2 -mattr=+bmi2 bench.ll -o <output>.s}，
+
+\noindent
+M4用は\texttt{llc -O2 -mtriple=arm64-apple-macosx -mcpu=apple-m4 bench.ll -o <output>.s}で生成した．
+
+LLVM 23.0.0オリジナルの\texttt{llc}で生成したコードと今回の提案方式をサポートした\texttt{llc}で生成したコードを比較した．
+
+\lstinputlistingasm[
+    language=asm,
+    caption={bench-x64-org.s},
+    label={CODE_x64_org},
+]{src/bench-x64-org.s}
+
+\lstinputlistingasm[
+    language=asm,
+    caption={bench-x64-opt.s},
+    label={CODE_x64_opt},
+]{src/bench-x64-opt.s}
+
+\lstinputlistingasm[
+    language=asm,
+    caption={bench-m4-org.s},
+    label={CODE_m4_org},
+]{src/bench-m4-org.s}
+
+\lstinputlistingasm[
+    language=asm,
+    caption={bench-m4-opt.s},
+    label={CODE_m4_opt},
+]{src/bench-m4-opt.s}
+
+Listing \ref{CODE_x64_org}とListing \ref{CODE_x64_opt}がx86-64, Listing \ref{CODE_m4_org}とListing \ref{CODE_m4_opt}がApple M4の結果であり，
+それぞれを比較すると，変更前は33ビットの定数除算に対して3段階のビットシフトを用いているのに対し，変更後は乗算1回で実装されループがコンパクトになっていることが分かる．
+
+次に，生成したアセンブリ言語ファイルから実行バイナリを生成し，実行時間をtimeコマンドで測定した．
+測定結果は表\ref{TBL_bench}の通りである．
+
+\tablecap{Xeon/Apple M4における処理時間の比較(sec)}{
+\label{TBL_bench}
+\begin{tabular}{|l|r|r|r|}
+\hline
+CPU & 変更前 & 変更後 & 向上率 \\ \hline
+Xeon & 6.33 & 3.80 & x1.67 \\ \hline
+M4 & 6.70 & 3.38 & x1.98 \\
+\hline
+\end{tabular}
+}
+
+測定環境は，Xeon w9-3495X (Sapphire Rapids)/Ubuntu 24.04.4 LTSとApple M4 MacBook Pro/Tahoe 26.4,
+各測定は10回実施し，平均値を採用した．CPU設定はデフォルト（turbo boost on）である．
+Xeon（10回平均）で6.33 secから3.80 sec（x1.67），M4で6.70 secから3.38 sec（x1.98）の高速化を達成した．
+Xeonの標本標準偏差は変更前0.013 sec，変更後0.009 secであり，ばらつきは小さい．
+
+LLVMに対するこの変更はllvm:mainにマージされている．
+GCCに対しても同様のパッチを作成した\cite{GCCpatch}．こちらは現在投稿中である．
+
+\section{まとめ}
+本論文では，64ビットCPUを前提とした32ビット符号無し定数除算の最適化手法を提案した．
+従来のGM法における33ビット定数の場合に対し，128ビットシフトを用いず単一の乗算命令で実装可能であることを示した．
+LLVMおよびGCCへの実装により，実機ベンチマークで最大1.67(Sapphire Rapids), 1.98(Apple M4)倍の性能向上を確認した．
+
+\bibliographystyle{jabbrv}
+\bibliography{main}
+
+\end{document}
