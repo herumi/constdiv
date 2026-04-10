@@ -114,8 +114,9 @@ struct ConstDivMod {
 	uint64_t cs_ = 0; // cs = c << (64 - a)
 	bool over_ = false; // c > M?
 	bool cmp_ = false; // d > M_//2 ?
-	void put() const
+	void put(const char *msg = nullptr) const
 	{
+		if (msg) printf("%s ", msg);
 		printf("DivMod d=%d(0x%08x) a=%u c=0x%s%08x e=0x%08x cmp=%u over=%u\n", d_, d_, a_, over_ ? "1" : "", c_, e_, cmp_, over_);
 		if (over_) {
 			uint64_t v = ((M_*c2_)>>a2_)*d_;

@@ -94,6 +94,8 @@ This method was proposed at the Symposium on Cryptography and Information Securi
 
 - The pull request [[SelectionDAG] Optimize 32-bit udiv with 33-bit magic constants on 64-bit targets](https://github.com/llvm/llvm-project/pull/181288) which llvm supports this optimization is merged into llvm:main.
 
+- PDF: [Optimization of 32-bit Unsigned Division by Constants on 64-bit Targets](https://arxiv.org/abs/2604.07902)
+
 
 It can be optimized as follows for 64-bit CPUs.
 
