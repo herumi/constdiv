@@ -187,6 +187,7 @@ testall(d, M)
 d = 3329
 testall(d, M)
 testall(d, 32767)
+testall(d, d * (d//2)*2)
 
 #testMod(12345)
 #testMod(123)
